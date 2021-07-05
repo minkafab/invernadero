@@ -1,59 +1,85 @@
 #include <Arduino.h>
 #include <uFire_SHT20.h>
-#define is_up  25 //inductive sensor UP input
-#define is_down  26 //inductive sensor DOWN input
+
+#define is_up 25   //inductive sensor UP input
+#define is_down 26 //inductive sensor DOWN input
+
 #define ac1 34 //AC input 1
 #define ac2 35 //AC input 2
 #define ac3 32 //AC input 3
 #define ac4 33 //AC input 4
 
+#define sw 27 //Switch
 
-#define stepPin 23
-#define dirPin 4
-#define enablePin 13
+#define pul 23 //stepper pulse pin
+#define dir 19 //stepper dir pin
+#define ena 13 //stepper enable pin
 
-uFire_SHT20 sht20;
-uint8_t cont=0;
-//int led = 23;
+#define ev1 16 //Electrovalve Relay output 1
+#define ev2 4  //Electrovalve Relay output 2
+#define ev3 17 //Electrovalve Relay output 3
+#define ev4 18 //Electrovalve Relay output 4
 
+uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
+uint8_t cont = 0;
 
+float humidity = 0.0;
+float temperature = 0.0;
 
+void IRAM_ATTR ac1int()
+{
+  Serial.println("AC1 detected");
+}
+void IRAM_ATTR ac2int()
+{
+  Serial.println("AC2 detected");
+}
+void IRAM_ATTR ac3int()
+{
+  Serial.println("AC3 detected");
+}
+void IRAM_ATTR ac4int()
+{
+  Serial.println("AC4 detected");
+}
 
-void setup() {
-  pinMode (ac1, INPUT_PULLUP);
-  pinMode (ac2, INPUT_PULLUP);
-  pinMode (ac3, INPUT_PULLUP);
-  pinMode (ac4, INPUT_PULLUP);
-  pinMode (is_up, INPUT);
-  pinMode (is_down, INPUT);
+void setup()
+{
+  pinMode(ac1, INPUT);
+  pinMode(ac2, INPUT);
+  pinMode(ac3, INPUT);
+  pinMode(ac4, INPUT);
 
-  pinMode(stepPin,OUTPUT); 
-  pinMode(dirPin,OUTPUT);
-  pinMode(enablePin,OUTPUT);
+  attachInterrupt(digitalPinToInterrupt(ac1), ac1int, FALLING);
+  attachInterrupt(digitalPinToInterrupt(ac2), ac2int, FALLING);
+  attachInterrupt(digitalPinToInterrupt(ac3), ac3int, FALLING);
+  attachInterrupt(digitalPinToInterrupt(ac4), ac4int, FALLING);
 
+  pinMode(is_up, INPUT);
+  pinMode(is_down, INPUT);
+
+  pinMode(pul, OUTPUT);
+  pinMode(dir, OUTPUT);
+  pinMode(ena, OUTPUT);
 
   Serial.begin(115200);
   Serial.println("HOLA MUNDO");
 
-  pinMode(stepPin,OUTPUT); 
-  pinMode(dirPin,OUTPUT);
-  pinMode(enablePin,OUTPUT);
+  pinMode(pul, OUTPUT);
+  pinMode(dir, OUTPUT);
+  pinMode(ena, OUTPUT);
 
   Wire.begin();
   sht20.begin();
 }
 
-void loop() {
+void loop()
+{
   // put your main code here, to run repeatedly:
   //delay(1000);
   //cont++;
 
-  /*sht20.measure_all();
-  Serial.println((String)sht20.tempC + "°C");
-  Serial.println((String)sht20.dew_pointC + "°C dew point");
-  Serial.println((String)sht20.RH + " %RH");
-  Serial.println((String)sht20.vpd() + " kPa VPD");
-  Serial.println();*/
+  /*
   //if(digitalRead(is_up)) Serial.println("inductivo UP en alto");
   //else Serial.println("inductivo UP en bajo");
   //if(digitalRead(is_down)) Serial.println("inductivo DOWN en alto");
@@ -93,29 +119,45 @@ void loop() {
   }
   delay(500);*/
 
-digitalWrite(dirPin,HIGH); // Enables the motor to move in a particular direction
-  digitalWrite(enablePin, LOW);
+  digitalWrite(dir, HIGH); // Enables the motor to move in a particular direction
+  digitalWrite(ena, LOW);
   // Makes 200 pulses for making one full cycle rotation
-  for(int x = 0; x < 10000; x++) {
-    digitalWrite(stepPin,HIGH); 
-    delayMicroseconds(200); 
-    digitalWrite(stepPin,LOW); 
-    delayMicroseconds(200); 
+  for (int x = 0; x < 10000; x++)
+  {
+    digitalWrite(pul, HIGH);
+    delayMicroseconds(200);
+    digitalWrite(pul, LOW);
+    delayMicroseconds(200);
   }
   delay(50); // One second delay
-  
-  digitalWrite(dirPin,LOW); //Changes the rotations direction
+
+  digitalWrite(dir, LOW); //Changes the rotations direction
   // Makes 400 pulses for making two full cycle rotation
-  for(int x = 0; x < 10000; x++) {
-    digitalWrite(stepPin,HIGH);
+  for (int x = 0; x < 10000; x++)
+  {
+    digitalWrite(pul, HIGH);
     delayMicroseconds(200);
-    digitalWrite(stepPin,LOW);
+    digitalWrite(pul, LOW);
     delayMicroseconds(200);
   }
   delay(50);
-  digitalWrite(enablePin, HIGH);
-
-
-
+  digitalWrite(ena, HIGH);
 }
 
+void subirCortina()
+{
+}
+
+void bajarCortina()
+{
+}
+
+void leerSHT20()
+{
+  sht20.measure_all();
+  Serial.println((String)sht20.tempC + "°C");
+  Serial.println((String)sht20.dew_pointC + "°C dew point");
+  Serial.println((String)sht20.RH + " %RH");
+  Serial.println((String)sht20.vpd() + " kPa VPD");
+  Serial.println();
+}
