@@ -25,22 +25,75 @@ uint8_t cont = 0;
 
 float humidity = 0.0;
 float temperature = 0.0;
+float _humidity_over_setp = 0.0;
+float _humidity_under_setp = 0.0;
 
-void IRAM_ATTR ac1int()
+long debouncing_time = 100; //Debouncing Time in Milliseconds
+volatile unsigned long last_micros;
+
+bool ac1_state = false;
+bool ac2_state = false;
+bool ac3_state = false;
+bool last_ac1_state = false;
+bool last_ac2_state = false;
+bool last_ac3_state = false;
+
+
+void do_electrovalve_action(uint8_t electrovalve, bool action)
 {
-  Serial.println("AC1 detected");
+  uint8_t electrovalve_num = electrovalve;
+  //if(humidity > _humidity_over_setp){
+    switch (electrovalve_num)
+    {
+      case 1:
+        digitalWrite(ev1, action);
+        break;
+      case 2:
+        digitalWrite(ev2, action);
+        break;
+      case 3:
+        digitalWrite(ev3, action);
+        break;
+      case 4:
+        digitalWrite(ev4, action);
+        break;
+      default:
+      break;
+    }
+  //}
 }
-void IRAM_ATTR ac2int()
-{
-  Serial.println("AC2 detected");
-}
-void IRAM_ATTR ac3int()
-{
-  Serial.println("AC3 detected");
-}
-void IRAM_ATTR ac4int()
-{
-  Serial.println("AC4 detected");
+
+void eval_ac_inputs(){
+  if(last_ac1_state != ac1_state){
+    Serial.println("AC1: " + (String)ac1_state);
+    do_electrovalve_action(1,ac1_state);
+    last_ac1_state = ac1_state;
+  }
+  else{
+    if((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac1) != ac1_state) {
+    ac1_state = digitalRead(ac1);
+    last_micros = micros();
+  }}
+  if(last_ac2_state != ac2_state){
+    Serial.println("\tAC2: " + (String)ac2_state);
+    do_electrovalve_action(2,ac2_state);
+    last_ac2_state = ac2_state;
+  }
+  else{
+    if((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac2) != ac2_state) {
+    ac2_state = digitalRead(ac2);
+    last_micros = micros();
+  }}
+  if(last_ac3_state != ac3_state){
+    Serial.println("\t\tAC3: " + (String)ac3_state);
+    do_electrovalve_action(3,ac3_state);
+    last_ac3_state = ac3_state;
+  }
+  else{
+    if((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac3) != ac3_state) {
+    ac3_state = digitalRead(ac3);
+    last_micros = micros();
+  }}
 }
 
 void setup()
@@ -50,24 +103,36 @@ void setup()
   pinMode(ac3, INPUT);
   pinMode(ac4, INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(ac1), ac1int, FALLING);
-  attachInterrupt(digitalPinToInterrupt(ac2), ac2int, FALLING);
-  attachInterrupt(digitalPinToInterrupt(ac3), ac3int, FALLING);
-  attachInterrupt(digitalPinToInterrupt(ac4), ac4int, FALLING);
+  pinMode(ev1, OUTPUT);
+  pinMode(ev2, OUTPUT);
+  pinMode(ev3, OUTPUT);
+  pinMode(ev4, OUTPUT);
+  digitalWrite(ev1, HIGH);
+  digitalWrite(ev2, HIGH);
+  digitalWrite(ev3, HIGH);
+  digitalWrite(ev4, HIGH);
+
+  //attachInterrupt(ac1, ac1int, CHANGE);
+  //attachInterrupt(ac2, ac2int, CHANGE);
+  //attachInterrupt(ac3, ac3int, CHANGE);
+  //attachInterrupt(ac4, ac4int, CHANGE);
+
+  ac1_state = digitalRead(ac1);
+  ac2_state = digitalRead(ac2);
+  ac3_state = digitalRead(ac3);
+  last_ac1_state = ac1_state;
+  last_ac2_state = ac2_state;
+  last_ac3_state = ac3_state;
 
   pinMode(is_up, INPUT);
   pinMode(is_down, INPUT);
 
-  pinMode(pul, OUTPUT);
+  pinMode(pul, OUTPUT); 
   pinMode(dir, OUTPUT);
   pinMode(ena, OUTPUT);
 
   Serial.begin(115200);
   Serial.println("HOLA MUNDO");
-
-  pinMode(pul, OUTPUT);
-  pinMode(dir, OUTPUT);
-  pinMode(ena, OUTPUT);
 
   Wire.begin();
   sht20.begin();
@@ -75,6 +140,8 @@ void setup()
 
 void loop()
 {
+  eval_ac_inputs();
+
   // put your main code here, to run repeatedly:
   //delay(1000);
   //cont++;
@@ -119,7 +186,7 @@ void loop()
   }
   delay(500);*/
 
-  digitalWrite(dir, HIGH); // Enables the motor to move in a particular direction
+  /*digitalWrite(dir, HIGH); // Enables the motor to move in a particular direction
   digitalWrite(ena, LOW);
   // Makes 200 pulses for making one full cycle rotation
   for (int x = 0; x < 10000; x++)
@@ -141,7 +208,7 @@ void loop()
     delayMicroseconds(200);
   }
   delay(50);
-  digitalWrite(ena, HIGH);
+  digitalWrite(ena, HIGH);*/
 }
 
 void subirCortina()
@@ -151,6 +218,8 @@ void subirCortina()
 void bajarCortina()
 {
 }
+
+
 
 void leerSHT20()
 {
