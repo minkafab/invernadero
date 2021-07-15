@@ -34,9 +34,11 @@ volatile unsigned long last_micros;
 bool ac1_state = false;
 bool ac2_state = false;
 bool ac3_state = false;
+bool ac4_state = false;
 bool last_ac1_state = false;
 bool last_ac2_state = false;
 bool last_ac3_state = false;
+bool last_ac4_state = false;
 
 
 void do_electrovalve_action(uint8_t electrovalve, bool action)
@@ -94,6 +96,16 @@ void eval_ac_inputs(){
     ac3_state = digitalRead(ac3);
     last_micros = micros();
   }}
+  if(last_ac4_state != ac4_state){
+    Serial.println("\t\t\tAC4: " + (String)ac4_state);
+    do_electrovalve_action(4,ac4_state);
+    last_ac4_state = ac4_state;
+  }
+  else{
+    if((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac4) != ac4_state) {
+    ac4_state = digitalRead(ac4);
+    last_micros = micros();
+  }}
 }
 
 void setup()
@@ -112,17 +124,14 @@ void setup()
   digitalWrite(ev3, HIGH);
   digitalWrite(ev4, HIGH);
 
-  //attachInterrupt(ac1, ac1int, CHANGE);
-  //attachInterrupt(ac2, ac2int, CHANGE);
-  //attachInterrupt(ac3, ac3int, CHANGE);
-  //attachInterrupt(ac4, ac4int, CHANGE);
-
   ac1_state = digitalRead(ac1);
   ac2_state = digitalRead(ac2);
   ac3_state = digitalRead(ac3);
+  ac4_state = digitalRead(ac4);
   last_ac1_state = ac1_state;
   last_ac2_state = ac2_state;
   last_ac3_state = ac3_state;
+  last_ac4_state = ac4_state;
 
   pinMode(is_up, INPUT);
   pinMode(is_down, INPUT);
@@ -218,8 +227,6 @@ void subirCortina()
 void bajarCortina()
 {
 }
-
-
 
 void leerSHT20()
 {
