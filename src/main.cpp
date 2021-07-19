@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <uFire_SHT20.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+#include <SPIFFS.h>
+#include <ArduinoJson.h>
 
 
 WiFiManager wm;
@@ -24,7 +26,7 @@ WiFiManager wm;
 #define ev3 17 //Electrovalve Relay output 3
 #define ev4 18 //Electrovalve Relay output 4
 
-uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
+//uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
 uint8_t cont = 0;
 
 float humidity = 0.0;
@@ -43,6 +45,70 @@ bool last_ac1_state = false;
 bool last_ac2_state = false;
 bool last_ac3_state = false;
 bool last_ac4_state = false;
+
+
+char mqtt_server[40] = "m2mlight.com";
+char humidity_setp[4] = "100";
+char temperature_setp[4] = "25";
+
+//flag for saving data
+bool shouldSaveConfig = false;
+
+//callback notifying us of the need to save config
+void saveConfigCallback () {
+  Serial.println("Should save config");
+  shouldSaveConfig = true;
+}
+
+void setupSpiffs(){
+  //clean FS, for testing
+  // SPIFFS.format();
+
+  //read configuration from FS json
+  Serial.println("mounting FS...");
+
+  if (SPIFFS.begin()) {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists("/config.json")) {
+      //file exists, reading and loading
+      Serial.println("reading config file");
+      File configFile = SPIFFS.open("/config.json", "r");
+      if (configFile) {
+        Serial.println("opened config file");
+        size_t size = configFile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
+
+        configFile.readBytes(buf.get(), size);
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject& json = jsonBuffer.parseObject(buf.get());
+        json.printTo(Serial);
+        if (json.success()) {
+          Serial.println("\nparsed json");
+
+          strcpy(humidity_setp, json["humidity_setp"]);
+          strcpy(temperature_setp, json["temperature_setp"]);
+
+          // if(json["ip"]) {
+          //   Serial.println("setting custom ip from config");
+          //   strcpy(static_ip, json["ip"]);
+          //   strcpy(static_gw, json["gateway"]);
+          //   strcpy(static_sn, json["subnet"]);
+          //   Serial.println(static_ip);
+          // } else {
+          //   Serial.println("no custom ip in config");
+          // }
+
+        } else {
+          Serial.println("failed to load json config");
+        }
+      }
+    }
+  } else {
+    Serial.println("failed to mount FS");
+  }
+  //end read
+}
 
 void do_electrovalve_action(uint8_t electrovalve, bool action)
 {
@@ -165,10 +231,19 @@ void setup()
   Serial.begin(115200);
   Serial.println("HOLA MUNDO");
 
-  Wire.begin();
-  sht20.begin();
+  //Wire.begin();
+  //sht20.begin();
+
+  setupSpiffs();
 
   WiFi.mode(WIFI_STA);
+  wm.setSaveConfigCallback(saveConfigCallback);
+  WiFiManagerParameter custom_humidity_setp("humidity_setp", "humidity_setp", humidity_setp, 3);
+  WiFiManagerParameter custom_temperature_setp("temperature_setp", "temperature_setp", temperature_setp, 3);
+
+  //add all your parameters here
+  wm.addParameter(&custom_humidity_setp);
+  wm.addParameter(&custom_temperature_setp);
 
   //reset settings - wipe credentials for testing
   //wm.resetSettings();
@@ -196,6 +271,38 @@ void setup()
     //if you get here you have connected to the WiFi
     Serial.println("connected...yeey :)");
   }
+
+  strcpy(humidity_setp, custom_humidity_setp.getValue());
+  strcpy(temperature_setp, custom_temperature_setp.getValue());
+
+  if (shouldSaveConfig) {
+    Serial.println("saving config");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    json["humidity_setp"] = humidity_setp;
+    json["temperature_setp"]   = temperature_setp;
+
+    // json["ip"]          = WiFi.localIP().toString();
+    // json["gateway"]     = WiFi.gatewayIP().toString();
+    // json["subnet"]      = WiFi.subnetMask().toString();
+
+    File configFile = SPIFFS.open("/config.json", "w");
+    if (!configFile) {
+      Serial.println("failed to open config file for writing");
+    }
+
+    json.prettyPrintTo(Serial);
+    json.printTo(configFile);
+    configFile.close();
+    //end save
+    shouldSaveConfig = false;
+  }
+
+  Serial.println("local ip");
+  Serial.println(WiFi.localIP());
+  Serial.println(WiFi.gatewayIP());
+  Serial.println(WiFi.subnetMask());
+
 }
 
 void loop()
@@ -298,10 +405,10 @@ void bajarCortina()
 
 void leerSHT20()
 {
-  sht20.measure_all();
-  Serial.println((String)sht20.tempC + "°C");
-  Serial.println((String)sht20.dew_pointC + "°C dew point");
-  Serial.println((String)sht20.RH + " %RH");
-  Serial.println((String)sht20.vpd() + " kPa VPD");
+  //sht20.measure_all();
+  //Serial.println((String)sht20.tempC + "°C");
+  //Serial.println((String)sht20.dew_pointC + "°C dew point");
+  //Serial.println((String)sht20.RH + " %RH");
+  //Serial.println((String)sht20.vpd() + " kPa VPD");
   Serial.println();
 }
