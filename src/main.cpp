@@ -3,6 +3,7 @@
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
+#include <PubSubClient.h>
 
 
 WiFiManager wm;
@@ -26,7 +27,7 @@ WiFiManager wm;
 #define ev3 17 //Electrovalve Relay output 3
 #define ev4 18 //Electrovalve Relay output 4
 
-//uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
+uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
 uint8_t cont = 0;
 
 float humidity = 0.0;
@@ -50,9 +51,84 @@ bool last_ac4_state = false;
 char mqtt_server[40] = "m2mlight.com";
 char humidity_setp[4] = "100";
 char temperature_setp[4] = "25";
+char topic[40] = "/3x1Z1njcje";
+
 
 //flag for saving data
 bool shouldSaveConfig = false;
+WiFiClient wifiClient;
+PubSubClient client(wifiClient);
+
+struct t {
+  uint32_t tStart;
+  uint32_t tTimeout;
+};
+//Tasks and their Schedules.  
+t t_verify = {0, 30 * 1000};     //Run every x miliseconds
+
+bool tCheck(struct t *t)
+{
+  if (millis() >= t->tStart + t->tTimeout)
+  {
+    //Serial.println(t->tStart);
+    //Serial.println("\t"+(String)millis());
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+void tRun(struct t *t)
+{
+  t->tStart = millis();
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  char* ret;
+  char toint[3];
+  //sens3144&o=I&a=jkrl1njcrk&t=0&s=1&e=50&u=&v=
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i=0;i<length;i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+  if(strcmp((char*)payload,"sens") > 4){
+    Serial.println("Esl payload es mayor que 4");
+    ret = strrchr((char*)payload, 'e');
+    ret[6] = '\0';
+    Serial.printf("String after |e=| is - |%s|\n",ret);
+    int fin = strchr(ret,'&') - ret;
+    Serial.println("FIN es: " + (String)fin);
+    for(int i=2;i<fin;i++){
+      toint[i-2]=ret[i];
+    }
+    Serial.println(toint);
+  }
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("arduinoClient","mqtt","m2mlight12")) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      //client.publish(topic,"hello world");
+      // ... and resubscribe
+      client.subscribe(topic);
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
 
 //callback notifying us of the need to save config
 void saveConfigCallback () {
@@ -231,8 +307,8 @@ void setup()
   Serial.begin(115200);
   Serial.println("HOLA MUNDO");
 
-  //Wire.begin();
-  //sht20.begin();
+  Wire.begin();
+  sht20.begin();
 
   setupSpiffs();
 
@@ -303,6 +379,10 @@ void setup()
   Serial.println(WiFi.gatewayIP());
   Serial.println(WiFi.subnetMask());
 
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+  reconnect();
+
 }
 
 void loop()
@@ -325,6 +405,12 @@ void loop()
       ESP.restart();
     }
   }
+
+
+    if (!client.connected()) {
+      reconnect();
+    }
+  client.loop();
 
   // put your main code here, to run repeatedly:
   //delay(1000);
@@ -405,10 +491,10 @@ void bajarCortina()
 
 void leerSHT20()
 {
-  //sht20.measure_all();
-  //Serial.println((String)sht20.tempC + "°C");
-  //Serial.println((String)sht20.dew_pointC + "°C dew point");
-  //Serial.println((String)sht20.RH + " %RH");
-  //Serial.println((String)sht20.vpd() + " kPa VPD");
+  sht20.measure_all();
+  Serial.println((String)sht20.tempC + "°C");
+  Serial.println((String)sht20.dew_pointC + "°C dew point");
+  Serial.println((String)sht20.RH + " %RH");
+  Serial.println((String)sht20.vpd() + " kPa VPD");
   Serial.println();
 }
