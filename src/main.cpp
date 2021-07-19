@@ -1,5 +1,9 @@
 #include <Arduino.h>
 #include <uFire_SHT20.h>
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+
+
+WiFiManager wm;
 
 #define is_up 25   //inductive sensor UP input
 #define is_down 26 //inductive sensor DOWN input
@@ -40,72 +44,88 @@ bool last_ac2_state = false;
 bool last_ac3_state = false;
 bool last_ac4_state = false;
 
-
 void do_electrovalve_action(uint8_t electrovalve, bool action)
 {
   uint8_t electrovalve_num = electrovalve;
   //if(humidity > _humidity_over_setp){
-    switch (electrovalve_num)
-    {
-      case 1:
-        digitalWrite(ev1, action);
-        break;
-      case 2:
-        digitalWrite(ev2, action);
-        break;
-      case 3:
-        digitalWrite(ev3, action);
-        break;
-      case 4:
-        digitalWrite(ev4, action);
-        break;
-      default:
-      break;
-    }
+  switch (electrovalve_num)
+  {
+  case 1:
+    digitalWrite(ev1, action);
+    break;
+  case 2:
+    digitalWrite(ev2, action);
+    break;
+  case 3:
+    digitalWrite(ev3, action);
+    break;
+  case 4:
+    digitalWrite(ev4, action);
+    break;
+  default:
+    break;
+  }
   //}
 }
 
-void eval_ac_inputs(){
-  if(last_ac1_state != ac1_state){
+void eval_ac_inputs()
+{
+  if (last_ac1_state != ac1_state)
+  {
     Serial.println("AC1: " + (String)!ac1_state);
-    do_electrovalve_action(1,ac1_state);
+    do_electrovalve_action(1, ac1_state);
     last_ac1_state = ac1_state;
   }
-  else{
-    if((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac1) != ac1_state) {
-    ac1_state = digitalRead(ac1);
-    last_micros = micros();
-  }}
-  if(last_ac2_state != ac2_state){
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac1) != ac1_state)
+    {
+      ac1_state = digitalRead(ac1);
+      last_micros = micros();
+    }
+  }
+  if (last_ac2_state != ac2_state)
+  {
     Serial.println("\tAC2: " + (String)!ac2_state);
-    do_electrovalve_action(2,ac2_state);
+    do_electrovalve_action(2, ac2_state);
     last_ac2_state = ac2_state;
   }
-  else{
-    if((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac2) != ac2_state) {
-    ac2_state = digitalRead(ac2);
-    last_micros = micros();
-  }}
-  if(last_ac3_state != ac3_state){
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac2) != ac2_state)
+    {
+      ac2_state = digitalRead(ac2);
+      last_micros = micros();
+    }
+  }
+  if (last_ac3_state != ac3_state)
+  {
     Serial.println("\t\tAC3: " + (String)!ac3_state);
-    do_electrovalve_action(3,ac3_state);
+    do_electrovalve_action(3, ac3_state);
     last_ac3_state = ac3_state;
   }
-  else{
-    if((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac3) != ac3_state) {
-    ac3_state = digitalRead(ac3);
-    last_micros = micros();
-  }}
-  if(last_ac4_state != ac4_state){
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac3) != ac3_state)
+    {
+      ac3_state = digitalRead(ac3);
+      last_micros = micros();
+    }
+  }
+  if (last_ac4_state != ac4_state)
+  {
     Serial.println("\t\t\tAC4: " + (String)!ac4_state);
-    do_electrovalve_action(4,ac4_state);
+    do_electrovalve_action(4, ac4_state);
     last_ac4_state = ac4_state;
   }
-  else{
-    if((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac4) != ac4_state) {
-    ac4_state = digitalRead(ac4);
-    last_micros = micros();
-  }}
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac4) != ac4_state)
+    {
+      ac4_state = digitalRead(ac4);
+      last_micros = micros();
+    }
+  }
 }
 
 void setup()
@@ -136,20 +156,68 @@ void setup()
   pinMode(is_up, INPUT);
   pinMode(is_down, INPUT);
 
-  pinMode(pul, OUTPUT); 
+  pinMode(pul, OUTPUT);
   pinMode(dir, OUTPUT);
   pinMode(ena, OUTPUT);
+
+  pinMode(sw, INPUT);
 
   Serial.begin(115200);
   Serial.println("HOLA MUNDO");
 
   Wire.begin();
   sht20.begin();
+
+  WiFi.mode(WIFI_STA);
+
+  //reset settings - wipe credentials for testing
+  //wm.resetSettings();
+
+  // Automatically connect using saved credentials,
+  // if connection fails, it starts an access point with the specified name ( "AutoConnectAP"),
+  // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
+  // then goes into a blocking loop awaiting configuration and will return success result
+
+  bool res;
+  // res = wm.autoConnect(); // auto generated AP name from chipid
+  // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
+  res = wm.autoConnect("AutoConnectAP", "password"); // password protected ap
+
+  if (!res)
+  {
+    Serial.println("Failed to connect");
+    ledcAttachPin(ev4, 0);
+    ledcSetup(0, 1000, 4);
+    ledcWrite(0, 4);
+    // ESP.restart();
+  }
+  else
+  {
+    //if you get here you have connected to the WiFi
+    Serial.println("connected...yeey :)");
+  }
 }
 
 void loop()
 {
   eval_ac_inputs();
+  if (digitalRead(sw) == LOW)
+  {
+    volatile unsigned long counter = millis();
+    volatile unsigned long acum = 0;
+    while (digitalRead(sw) == LOW && millis() - counter < 5 * 1000)
+    {
+      acum++;
+    }
+    //Serial.println("SWITCH DADO");
+    Serial.println(acum);
+    if (acum > 3000000)
+    {
+      Serial.println("RESET DONE");
+      wm.resetSettings();
+      ESP.restart();
+    }
+  }
 
   // put your main code here, to run repeatedly:
   //delay(1000);
