@@ -67,7 +67,7 @@ void do_electrovalve_action(uint8_t electrovalve, bool action)
 
 void eval_ac_inputs(){
   if(last_ac1_state != ac1_state){
-    Serial.println("AC1: " + (String)ac1_state);
+    Serial.println("AC1: " + (String)!ac1_state);
     do_electrovalve_action(1,ac1_state);
     last_ac1_state = ac1_state;
   }
@@ -77,7 +77,7 @@ void eval_ac_inputs(){
     last_micros = micros();
   }}
   if(last_ac2_state != ac2_state){
-    Serial.println("\tAC2: " + (String)ac2_state);
+    Serial.println("\tAC2: " + (String)!ac2_state);
     do_electrovalve_action(2,ac2_state);
     last_ac2_state = ac2_state;
   }
@@ -87,7 +87,7 @@ void eval_ac_inputs(){
     last_micros = micros();
   }}
   if(last_ac3_state != ac3_state){
-    Serial.println("\t\tAC3: " + (String)ac3_state);
+    Serial.println("\t\tAC3: " + (String)!ac3_state);
     do_electrovalve_action(3,ac3_state);
     last_ac3_state = ac3_state;
   }
@@ -97,7 +97,7 @@ void eval_ac_inputs(){
     last_micros = micros();
   }}
   if(last_ac4_state != ac4_state){
-    Serial.println("\t\t\tAC4: " + (String)ac4_state);
+    Serial.println("\t\t\tAC4: " + (String)!ac4_state);
     do_electrovalve_action(4,ac4_state);
     last_ac4_state = ac4_state;
   }
