@@ -5,7 +5,6 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 
-
 WiFiManager wm;
 
 #define is_up 25   //inductive sensor UP input
@@ -47,109 +46,127 @@ bool last_ac2_state = false;
 bool last_ac3_state = false;
 bool last_ac4_state = false;
 
-
-char mqtt_server[40] = "m2mlight.com";
+char mqtt_server[20] = "m2mlight.com";
 char humidity_setp[4] = "100";
 char temperature_setp[4] = "25";
-char topic[40] = "/3x1Z1njcje";
-
+const char usertopic[20] = "/3x1Z1njcje";
+const char replyusertopic[20] = "/3x1Z1njcje/reply/";
+char humidity_apkey[11] = "";
+char temperature_apkey[11] = "";
 
 //flag for saving data
 bool shouldSaveConfig = false;
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
+char reply[15];
 
-struct t {
+struct t
+{
   uint32_t tStart;
   uint32_t tTimeout;
 };
-//Tasks and their Schedules.  
-t t_verify = {0, 30 * 1000};     //Run every x miliseconds
+//Tasks and their Schedules.
+t t_verify = {0, 30 * 1000}; //Run every x miliseconds
 
-bool tCheck(struct t *t)
+void callback(char *topico, byte *payload, unsigned int length)
 {
-  if (millis() >= t->tStart + t->tTimeout)
-  {
-    //Serial.println(t->tStart);
-    //Serial.println("\t"+(String)millis());
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-void tRun(struct t *t)
-{
-  t->tStart = millis();
-}
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  char* ret;
-  char toint[3];
+  char *ret;
+  char toint[6];
+  
   //sens3144&o=I&a=jkrl1njcrk&t=0&s=1&e=50&u=&v=
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i=0;i<length;i++) {
+  Serial.print(F("Message arrived ["));
+  Serial.print(topico);
+  Serial.print(F("] "));
+  for (int i = 0; i < length; i++)
+  {
     Serial.print((char)payload[i]);
   }
   Serial.println();
-  if(strcmp((char*)payload,"sens") > 4){
-    Serial.println("Esl payload es mayor que 4");
-    ret = strrchr((char*)payload, 'e');
-    ret[6] = '\0';
+  if (strcmp((char *)payload, "sens") > 4)
+  {
+    //Serial.println(F("Esl payload es mayor que 4"));
+    ret = strrchr((char *)payload, 'e');
+    ret[7] = '\0';
     Serial.printf("String after |e=| is - |%s|\n",ret);
-    int fin = strchr(ret,'&') - ret;
-    Serial.println("FIN es: " + (String)fin);
-    for(int i=2;i<fin;i++){
-      toint[i-2]=ret[i];
+    uint8_t fin = strchr(ret, '&') - ret;
+    //Serial.println("FIN es: " + (String)fin);
+    strncpy(reply,(char*)payload,12);
+    //reply = (char*)payload;
+    //memset(payload, 0, sizeof payload);
+    if (fin > 5 || fin < 2)
+    {
+      //valor mayor a 3 digitos no peude ser anadido
+      Serial.println(F("error en el valor setp"));
+      client.publish(usertopic,"noVALsetp");
     }
-    Serial.println(toint);
+    else 
+    {
+      reply[9] = 'O';
+      reply[10] = 'K';
+      reply[11] = '\0';
+      Serial.println(reply);
+      client.publish(replyusertopic, reply);
+      for (uint8_t i = 2; i < fin; i++)
+      {
+        toint[i - 2] = ret[i];
+      }
+      toint[fin - 2] = '\0';
+      Serial.println(toint);
+    }
   }
 }
 
-void reconnect() {
+void reconnect()
+{
   // Loop until we're reconnected
-  while (!client.connected()) {
+  while (!client.connected())
+  {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("arduinoClient","mqtt","m2mlight12")) {
+    if (client.connect("arduinoClient", "mqtt", "m2mlight12"))
+    {
       Serial.println("connected");
       // Once connected, publish an announcement...
       //client.publish(topic,"hello world");
       // ... and resubscribe
-      client.subscribe(topic);
-    } else {
+      client.subscribe(usertopic);
+    }
+    else
+    {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
-      delay(5000);
+      //delay(5000);
     }
   }
 }
 
 //callback notifying us of the need to save config
-void saveConfigCallback () {
+void saveConfigCallback()
+{
   Serial.println("Should save config");
   shouldSaveConfig = true;
 }
 
-void setupSpiffs(){
+void setupSpiffs()
+{
   //clean FS, for testing
   // SPIFFS.format();
 
   //read configuration from FS json
   Serial.println("mounting FS...");
 
-  if (SPIFFS.begin()) {
+  if (SPIFFS.begin())
+  {
     Serial.println("mounted file system");
-    if (SPIFFS.exists("/config.json")) {
+    if (SPIFFS.exists("/config.json"))
+    {
       //file exists, reading and loading
       Serial.println("reading config file");
       File configFile = SPIFFS.open("/config.json", "r");
-      if (configFile) {
+      if (configFile)
+      {
         Serial.println("opened config file");
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
@@ -157,9 +174,10 @@ void setupSpiffs(){
 
         configFile.readBytes(buf.get(), size);
         DynamicJsonBuffer jsonBuffer;
-        JsonObject& json = jsonBuffer.parseObject(buf.get());
+        JsonObject &json = jsonBuffer.parseObject(buf.get());
         json.printTo(Serial);
-        if (json.success()) {
+        if (json.success())
+        {
           Serial.println("\nparsed json");
 
           strcpy(humidity_setp, json["humidity_setp"]);
@@ -174,13 +192,16 @@ void setupSpiffs(){
           // } else {
           //   Serial.println("no custom ip in config");
           // }
-
-        } else {
+        }
+        else
+        {
           Serial.println("failed to load json config");
         }
       }
     }
-  } else {
+  }
+  else
+  {
     Serial.println("failed to mount FS");
   }
   //end read
@@ -351,19 +372,21 @@ void setup()
   strcpy(humidity_setp, custom_humidity_setp.getValue());
   strcpy(temperature_setp, custom_temperature_setp.getValue());
 
-  if (shouldSaveConfig) {
+  if (shouldSaveConfig)
+  {
     Serial.println("saving config");
     DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
+    JsonObject &json = jsonBuffer.createObject();
     json["humidity_setp"] = humidity_setp;
-    json["temperature_setp"]   = temperature_setp;
+    json["temperature_setp"] = temperature_setp;
 
     // json["ip"]          = WiFi.localIP().toString();
     // json["gateway"]     = WiFi.gatewayIP().toString();
     // json["subnet"]      = WiFi.subnetMask().toString();
 
     File configFile = SPIFFS.open("/config.json", "w");
-    if (!configFile) {
+    if (!configFile)
+    {
       Serial.println("failed to open config file for writing");
     }
 
@@ -382,7 +405,6 @@ void setup()
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   reconnect();
-
 }
 
 void loop()
@@ -406,10 +428,10 @@ void loop()
     }
   }
 
-
-    if (!client.connected()) {
-      reconnect();
-    }
+  if (!client.connected())
+  {
+    reconnect();
+  }
   client.loop();
 
   // put your main code here, to run repeatedly:
