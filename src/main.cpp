@@ -360,6 +360,16 @@ void eval_ac_inputs()
   }
 }
 
+void readSHT20()
+{
+  sht20.measure_all();
+  Serial.println((String)sht20.tempC + "°C");
+  Serial.println((String)sht20.dew_pointC + "°C dew point");
+  Serial.println((String)sht20.RH + " %RH");
+  Serial.println((String)sht20.vpd() + " kPa VPD");
+  Serial.println();
+}
+
 void setup()
 {
   pinMode(ac1, INPUT);
@@ -589,14 +599,4 @@ void subirCortina()
 
 void bajarCortina()
 {
-}
-
-void readSHT20()
-{
-  sht20.measure_all();
-  Serial.println((String)sht20.tempC + "°C");
-  Serial.println((String)sht20.dew_pointC + "°C dew point");
-  Serial.println((String)sht20.RH + " %RH");
-  Serial.println((String)sht20.vpd() + " kPa VPD");
-  Serial.println();
 }
