@@ -51,8 +51,8 @@ char humidity_setp[4] = "100";
 char temperature_setp[4] = "25";
 const char usertopic[20] = "/3x1Z1njcje";
 const char replyusertopic[20] = "/3x1Z1njcje/reply/";
-char humidity_apkey[11] = "";
-char temperature_apkey[11] = "";
+const char hum_apikey[15] = "VCWG1njcrs";
+const char temp_apikey[15] = "sxdg1njcrt";
 
 //flag for saving data
 bool shouldSaveConfig = false;
@@ -71,7 +71,9 @@ t t_verify = {0, 30 * 1000}; //Run every x miliseconds
 void callback(char *topico, byte *payload, unsigned int length)
 {
   char *ret;
-  char toint[6];
+  char *rit;
+  char willbeint[6];
+  uint8_t type = 0;
   
   //sens3144&o=I&a=jkrl1njcrk&t=0&s=1&e=50&u=&v=
   Serial.print(F("Message arrived ["));
@@ -92,7 +94,18 @@ void callback(char *topico, byte *payload, unsigned int length)
     //Serial.println("FIN es: " + (String)fin);
     strncpy(reply,(char*)payload,12);
     //reply = (char*)payload;
-    //memset(payload, 0, sizeof payload);
+    Serial.println("---------------------------------------------------");
+    rit = strchr((char *)payload, 'a');
+    rit[12] = '\0';
+    Serial.printf("String after |a=| is - |%s|\n",rit);
+    rit += 2;
+    if(strcmp(rit,(char*)temp_apikey)==0){
+      Serial.println("TEMPERATURA");
+    }
+    if(strcmp(rit,(char*)hum_apikey)==0){
+      Serial.println("HUMEDAD");
+    }
+    Serial.println("---------------------------------------------------");
     if (fin > 5 || fin < 2)
     {
       //valor mayor a 3 digitos no peude ser anadido
@@ -108,10 +121,10 @@ void callback(char *topico, byte *payload, unsigned int length)
       client.publish(replyusertopic, reply);
       for (uint8_t i = 2; i < fin; i++)
       {
-        toint[i - 2] = ret[i];
+        willbeint[i - 2] = ret[i];
       }
-      toint[fin - 2] = '\0';
-      Serial.println(toint);
+      willbeint[fin - 2] = '\0';
+      Serial.println(willbeint); //valor listo a ser convertido en entero
     }
   }
 }
