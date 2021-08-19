@@ -31,8 +31,8 @@ uint8_t cont = 0;
 
 float humidity = 0.0;
 float temperature = 0.0;
-float _humidity_over_setp = 0.0;
-float _humidity_under_setp = 0.0;
+int _humidity_setp = 0;
+int _temperature_setp = 0;
 
 long debouncing_time = 100; //Debouncing Time in Milliseconds
 volatile unsigned long last_micros;
@@ -47,8 +47,8 @@ bool last_ac3_state = false;
 bool last_ac4_state = false;
 
 char mqtt_server[20] = "m2mlight.com";
-char humidity_setp[4] = "100";
-char temperature_setp[4] = "25";
+char humidity_setp[4] = "200";
+char temperature_setp[4] = "45";
 const char usertopic[20] = "/3x1Z1njcje";
 const char replyusertopic[20] = "/3x1Z1njcje/reply/";
 const char hum_apikey[15] = "VCWG1njcrs";
@@ -68,12 +68,48 @@ struct t
 //Tasks and their Schedules.
 t t_verify = {0, 30 * 1000}; //Run every x miliseconds
 
+bool tCheck(struct t *t)
+{
+  if (millis() >= t->tStart + t->tTimeout)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+void tRun(struct t *t)
+{
+  t->tStart = millis();
+}
+
+void save_conf(){
+  Serial.println("saving config");
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject &json = jsonBuffer.createObject();
+  json["humidity_setp"] = humidity_setp;
+  json["temperature_setp"] = temperature_setp;
+
+  File configFile = SPIFFS.open("/config.json", "w");
+  if (!configFile)
+  {
+    Serial.println("failed to open config file for writing");
+  }
+
+  json.prettyPrintTo(Serial);
+  json.printTo(configFile);
+  configFile.close();
+}
+
+
 void callback(char *topico, byte *payload, unsigned int length)
 {
   char *ret;
   char *rit;
   char willbeint[6];
   uint8_t type = 0;
+  int new_setpoint = 0;
   
   //sens3144&o=I&a=jkrl1njcrk&t=0&s=1&e=50&u=&v=
   Serial.print(F("Message arrived ["));
@@ -101,9 +137,11 @@ void callback(char *topico, byte *payload, unsigned int length)
     rit += 2;
     if(strcmp(rit,(char*)temp_apikey)==0){
       Serial.println("TEMPERATURA");
+      type = 1;
     }
     if(strcmp(rit,(char*)hum_apikey)==0){
       Serial.println("HUMEDAD");
+      type = 2;
     }
     Serial.println("---------------------------------------------------");
     if (fin > 5 || fin < 2)
@@ -125,9 +163,26 @@ void callback(char *topico, byte *payload, unsigned int length)
       }
       willbeint[fin - 2] = '\0';
       Serial.println(willbeint); //valor listo a ser convertido en entero
+      sscanf(willbeint,"%d",&new_setpoint);
+      if(type == 1){
+        Serial.println("actualizacion para temperatura");
+        //Serial.println(temperature_setp);
+        strncpy(temperature_setp,willbeint,3);
+        //Serial.println(temperature_setp);
+        _temperature_setp = new_setpoint;
+      }
+      if(type == 2){
+        Serial.println("actualizacion para humedad");
+        //Serial.println(temperature_setp);
+        strncpy(humidity_setp,willbeint,3);
+        //Serial.println(temperature_setp);
+        _humidity_setp = new_setpoint;
+      }
+      save_conf();
     }
   }
 }
+
 
 void reconnect()
 {
@@ -251,6 +306,7 @@ void eval_ac_inputs()
     Serial.println("AC1: " + (String)!ac1_state);
     do_electrovalve_action(1, ac1_state);
     last_ac1_state = ac1_state;
+    Serial.println(humidity_setp);
   }
   else
   {
@@ -371,9 +427,9 @@ void setup()
   if (!res)
   {
     Serial.println("Failed to connect");
-    ledcAttachPin(ev4, 0);
-    ledcSetup(0, 1000, 4);
-    ledcWrite(0, 4);
+    //ledcAttachPin(ev4, 0);
+    //ledcSetup(0, 1000, 4);
+    //ledcWrite(0, 4);
     // ESP.restart();
   }
   else
@@ -384,6 +440,8 @@ void setup()
 
   strcpy(humidity_setp, custom_humidity_setp.getValue());
   strcpy(temperature_setp, custom_temperature_setp.getValue());
+  sscanf(humidity_setp,"%d",&_humidity_setp);
+  sscanf(temperature_setp,"%d",&_temperature_setp);
 
   if (shouldSaveConfig)
   {
@@ -418,11 +476,20 @@ void setup()
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   reconnect();
+
+  Serial.println("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++");
+  Serial.printf("Temperature set point: %d \n",_temperature_setp);
+  Serial.printf("Humidity set point: %d \n",_humidity_setp);
+  Serial.println("+++++++++            END            +++++++++");
 }
 
 void loop()
 {
   eval_ac_inputs();
+  if (tCheck(&t_verify)) {
+      readSHT20();
+      tRun(&t_verify);
+    }
   if (digitalRead(sw) == LOW)
   {
     volatile unsigned long counter = millis();
@@ -524,7 +591,7 @@ void bajarCortina()
 {
 }
 
-void leerSHT20()
+void readSHT20()
 {
   sht20.measure_all();
   Serial.println((String)sht20.tempC + "°C");
