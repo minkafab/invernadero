@@ -71,7 +71,7 @@ struct t
   uint32_t tTimeout;
 };
 //Tasks and their Schedules.
-t t_verify = {0, 60 * 1000}; //Run every x miliseconds
+t t_verify = {0, 60 * 1000};               //Run every x miliseconds
 t t_electrovalves_state = {0, 300 * 1000}; //Run every x miliseconds
 
 bool tCheck(struct t *t)
@@ -90,61 +90,74 @@ void tRun(struct t *t)
   t->tStart = millis();
 }
 
-void send_ev_states(){
+void send_ev_states()
+{
   char mess[20];
   mess[0] = '\0';
-  if(!ac1_state){
-    strcat(mess,ev1_apikey);
-    strcat(mess,"&1");
+  if (!ac1_state)
+  {
+    strcat(mess, ev1_apikey);
+    strcat(mess, "&1");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
-  }else{
-    strcat(mess,ev1_apikey);
-    strcat(mess,"&0");
+  }
+  else if (ac1_state)
+  {
+    strcat(mess, ev1_apikey);
+    strcat(mess, "&0");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
-  if(!ac2_state){
-    strcat(mess,ev2_apikey);
-    strcat(mess,"&1");
+  if (!ac2_state)
+  {
+    strcat(mess, ev2_apikey);
+    strcat(mess, "&1");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
-  }else{
-    strcat(mess,ev2_apikey);
-    strcat(mess,"&0");
+  }
+  else if (ac2_state)
+  {
+    strcat(mess, ev2_apikey);
+    strcat(mess, "&0");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
-  if(!ac3_state){
-    strcat(mess,ev3_apikey);
-    strcat(mess,"&1");
+  if (!ac3_state)
+  {
+    strcat(mess, ev3_apikey);
+    strcat(mess, "&1");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
-  }else{
-    strcat(mess,ev3_apikey);
-    strcat(mess,"&0");
+  }
+  else if (ac3_state)
+  {
+    strcat(mess, ev3_apikey);
+    strcat(mess, "&0");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
-  if(!ac4_state){
-    strcat(mess,ev4_apikey);
-    strcat(mess,"&1");
+  if (!ac4_state)
+  {
+    strcat(mess, ev4_apikey);
+    strcat(mess, "&1");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
-  }else{
-    strcat(mess,ev4_apikey);
-    strcat(mess,"&0");
+  }
+  else if (ac4_state)
+  {
+    strcat(mess, ev4_apikey);
+    strcat(mess, "&0");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
-
 }
 
-void save_conf(){
+void save_conf()
+{
   Serial.println("saving config");
   DynamicJsonBuffer jsonBuffer;
   JsonObject &json = jsonBuffer.createObject();
@@ -162,7 +175,6 @@ void save_conf(){
   configFile.close();
 }
 
-
 void callback(char *topico, byte *payload, unsigned int length)
 {
   char *ret;
@@ -170,7 +182,7 @@ void callback(char *topico, byte *payload, unsigned int length)
   char willbeint[6];
   uint8_t type = 0;
   int new_setpoint = 0;
-  
+
   //sens3144&o=I&a=jkrl1njcrk&t=0&s=1&e=50&u=&v=
   Serial.print(F("Message arrived ["));
   Serial.print(topico);
@@ -185,21 +197,23 @@ void callback(char *topico, byte *payload, unsigned int length)
     //Serial.println(F("Esl payload es mayor que 4"));
     ret = strrchr((char *)payload, 'e');
     ret[7] = '\0';
-    Serial.printf("String after |e=| is - |%s|\n",ret);
+    Serial.printf("String after |e=| is - |%s|\n", ret);
     uint8_t fin = strchr(ret, '&') - ret;
     //Serial.println("FIN es: " + (String)fin);
-    strncpy(reply,(char*)payload,12);
+    strncpy(reply, (char *)payload, 12);
     //reply = (char*)payload;
     Serial.println("---------------------------------------------------");
     rit = strchr((char *)payload, 'a');
     rit[12] = '\0';
-    Serial.printf("String after |a=| is - |%s|\n",rit);
+    Serial.printf("String after |a=| is - |%s|\n", rit);
     rit += 2;
-    if(strcmp(rit,(char*)temp_apikey)==0){
+    if (strcmp(rit, (char *)temp_apikey) == 0)
+    {
       Serial.println("TEMPERATURA");
       type = 1;
     }
-    if(strcmp(rit,(char*)hum_apikey)==0){
+    if (strcmp(rit, (char *)hum_apikey) == 0)
+    {
       Serial.println("HUMEDAD");
       type = 2;
     }
@@ -208,9 +222,9 @@ void callback(char *topico, byte *payload, unsigned int length)
     {
       //valor mayor a 3 digitos no peude ser anadido
       Serial.println(F("error en el valor setp"));
-      client.publish(usertopic,"noVALsetp");
+      client.publish(usertopic, "noVALsetp");
     }
-    else 
+    else
     {
       reply[9] = 'O';
       reply[10] = 'K';
@@ -223,18 +237,20 @@ void callback(char *topico, byte *payload, unsigned int length)
       }
       willbeint[fin - 2] = '\0';
       Serial.println(willbeint); //valor listo a ser convertido en entero
-      sscanf(willbeint,"%d",&new_setpoint);
-      if(type == 1){
+      sscanf(willbeint, "%d", &new_setpoint);
+      if (type == 1)
+      {
         Serial.println("actualizacion para temperatura");
         //Serial.println(temperature_setp);
-        strncpy(temperature_setp,willbeint,3);
+        strncpy(temperature_setp, willbeint, 3);
         //Serial.println(temperature_setp);
         _temperature_setp = new_setpoint;
       }
-      if(type == 2){
+      if (type == 2)
+      {
         Serial.println("actualizacion para humedad");
         //Serial.println(temperature_setp);
-        strncpy(humidity_setp,willbeint,3);
+        strncpy(humidity_setp, willbeint, 3);
         //Serial.println(temperature_setp);
         _humidity_setp = new_setpoint;
       }
@@ -242,7 +258,6 @@ void callback(char *topico, byte *payload, unsigned int length)
     }
   }
 }
-
 
 void reconnect()
 {
@@ -338,6 +353,7 @@ void setupSpiffs()
 void do_electrovalve_action(uint8_t electrovalve, bool action)
 {
   uint8_t electrovalve_num = electrovalve;
+  send_ev_states();
   //if(humidity > _humidity_over_setp){
   switch (electrovalve_num)
   {
@@ -357,7 +373,6 @@ void do_electrovalve_action(uint8_t electrovalve, bool action)
     break;
   }
   //}
-  send_ev_states();
 }
 
 void eval_ac_inputs()
@@ -427,24 +442,26 @@ void readSHT20()
   sht20.measure_all();
   humidity = sht20.RH;
   temperature = sht20.tempC;
-  if(temperature > 128.0){
+  if (temperature > 128.0)
+  {
     //sensor desconectado
     client.publish(sensorusertopic, "sensor desconectado");
   }
-  else{
+  else
+  {
     //sensor correcto - enviar data
-    dtostrf(humidity,4,2,number);
-    strcat(mess,hum_apikey);
-    strcat(mess,"&");
-    strcat(mess,number);
+    dtostrf(humidity, 4, 2, number);
+    strcat(mess, hum_apikey);
+    strcat(mess, "&");
+    strcat(mess, number);
     mess[16] = '\0';
     Serial.println(mess);
     client.publish(sensorusertopic, mess);
     mess[0] = '\0';
-    dtostrf(temperature,4,2,number);
-    strcat(mess,temp_apikey);
-    strcat(mess,"&");
-    strcat(mess,number);
+    dtostrf(temperature, 4, 2, number);
+    strcat(mess, temp_apikey);
+    strcat(mess, "&");
+    strcat(mess, number);
     mess[16] = '\0';
     Serial.println(mess);
     client.publish(sensorusertopic, mess);
@@ -454,7 +471,6 @@ void readSHT20()
     //Serial.println((String)sht20.vpd() + " kPa VPD");
     Serial.println();
   }
-  
 }
 
 void setup()
@@ -537,8 +553,8 @@ void setup()
 
   strcpy(humidity_setp, custom_humidity_setp.getValue());
   strcpy(temperature_setp, custom_temperature_setp.getValue());
-  sscanf(humidity_setp,"%d",&_humidity_setp);
-  sscanf(temperature_setp,"%d",&_temperature_setp);
+  sscanf(humidity_setp, "%d", &_humidity_setp);
+  sscanf(temperature_setp, "%d", &_temperature_setp);
 
   if (shouldSaveConfig)
   {
@@ -576,22 +592,24 @@ void setup()
   readSHT20();
 
   Serial.println("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++");
-  Serial.printf("Temperature set point: %d \n",_temperature_setp);
-  Serial.printf("Humidity set point: %d \n",_humidity_setp);
+  Serial.printf("Temperature set point: %d \n", _temperature_setp);
+  Serial.printf("Humidity set point: %d \n", _humidity_setp);
   Serial.println("+++++++++            END            +++++++++");
 }
 
 void loop()
 {
   eval_ac_inputs();
-  if (tCheck(&t_verify)) {
-      readSHT20();
-      tRun(&t_verify);
-    }
-    if (tCheck(&t_electrovalves_state)) {
-      send_ev_states();
-      tRun(&t_electrovalves_state);
-    }
+  if (tCheck(&t_verify))
+  {
+    readSHT20();
+    tRun(&t_verify);
+  }
+  if (tCheck(&t_electrovalves_state))
+  {
+    send_ev_states();
+    tRun(&t_electrovalves_state);
+  }
   if (digitalRead(sw) == LOW)
   {
     volatile unsigned long counter = millis();
