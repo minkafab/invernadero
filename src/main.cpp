@@ -35,16 +35,22 @@ int _humidity_setp = 0;
 int _temperature_setp = 0;
 
 long debouncing_time = 100; //Debouncing Time in Milliseconds
+long homing_max_time = 10000; //tiempo en milisegundos
 volatile unsigned long last_micros;
+volatile unsigned long last_millis;
 
 bool ac1_state = false;
 bool ac2_state = false;
 bool ac3_state = false;
 bool ac4_state = false;
+bool up_state = false;
+bool down_state = false;
 bool last_ac1_state = false;
 bool last_ac2_state = false;
 bool last_ac3_state = false;
 bool last_ac4_state = false;
+bool last_up_state = false;
+bool last_down_state = false;
 
 char mqtt_server[20] = "m2mlight.com";
 char humidity_setp[4] = "200";
@@ -437,6 +443,32 @@ void eval_ac_inputs()
       last_micros = micros();
     }
   }
+  if (last_up_state != up_state)
+  {
+    Serial.println("UP: " + (String)!up_state);
+    last_up_state = up_state;
+  }
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(is_up) != up_state)
+    {
+      up_state = digitalRead(is_up);
+      last_micros = micros();
+    }
+  }
+  if (last_down_state != down_state)
+  {
+    Serial.println("DOWN: " + (String)!down_state);
+    last_down_state = down_state;
+  }
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(is_down) != down_state)
+    {
+      down_state = digitalRead(is_down);
+      last_micros = micros();
+    }
+  }
 }
 
 void readSHT20()
@@ -501,6 +533,8 @@ void setup()
   last_ac2_state = ac2_state;
   last_ac3_state = ac3_state;
   last_ac4_state = ac4_state;
+  last_up_state = up_state;
+  last_down_state = down_state;
 
   pinMode(is_up, INPUT);
   pinMode(is_down, INPUT);
@@ -594,6 +628,17 @@ void setup()
   client.setCallback(callback);
   reconnect();
   readSHT20();
+  last_millis=millis();
+  digitalWrite(dir, HIGH);
+  digitalWrite(ena, LOW);
+  eval_ac_inputs();
+  while ((millis() - last_millis) <= homing_max_time && up_state == HIGH ){
+    eval_ac_inputs();
+    digitalWrite(pul, HIGH);
+    delayMicroseconds(200);
+    digitalWrite(pul, LOW);
+    delayMicroseconds(200);
+  }
 
   Serial.println("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++");
   Serial.printf("Temperature set point: %d \n", _temperature_setp);
@@ -607,6 +652,37 @@ void loop()
   if (tCheck(&t_verify))
   {
     readSHT20();
+
+
+
+    digitalWrite(dir, HIGH); // Enables the motor to move in a particular direction
+    digitalWrite(ena, LOW);
+  // Makes 200 pulses for making one full cycle rotation
+  for (int x = 0; x < 10000; x++)
+  {
+    digitalWrite(pul, HIGH);
+    delayMicroseconds(200);
+    digitalWrite(pul, LOW);
+    delayMicroseconds(200);
+  }
+  delay(50); // One second delay
+
+  digitalWrite(dir, LOW); //Changes the rotations direction
+  // Makes 400 pulses for making two full cycle rotation
+  for (int x = 0; x < 10000; x++)
+  {
+    digitalWrite(pul, HIGH);
+    delayMicroseconds(200);
+    digitalWrite(pul, LOW);
+    delayMicroseconds(200);
+  }
+  delay(50);
+  digitalWrite(ena, HIGH);
+
+
+
+
+
     tRun(&t_verify);
   }
   if (tCheck(&t_electrovalves_state))
