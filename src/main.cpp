@@ -367,7 +367,6 @@ void eval_ac_inputs()
     Serial.println("AC1: " + (String)!ac1_state);
     do_electrovalve_action(1, ac1_state);
     last_ac1_state = ac1_state;
-    Serial.println(humidity_setp);
   }
   else
   {
@@ -574,6 +573,7 @@ void setup()
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   reconnect();
+  readSHT20();
 
   Serial.println("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++");
   Serial.printf("Temperature set point: %d \n",_temperature_setp);
