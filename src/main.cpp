@@ -94,14 +94,14 @@ void send_ev_states()
 {
   char mess[20];
   mess[0] = '\0';
-  if (!ac1_state)
+  if (digitalRead(ev1) == false)
   {
     strcat(mess, ev1_apikey);
     strcat(mess, "&1");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
   }
-  else if (ac1_state)
+  else if (digitalRead(ev1) == true)
   {
     strcat(mess, ev1_apikey);
     strcat(mess, "&0");
@@ -109,14 +109,14 @@ void send_ev_states()
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
-  if (!ac2_state)
+  if (digitalRead(ev2) == false)
   {
     strcat(mess, ev2_apikey);
     strcat(mess, "&1");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
   }
-  else if (ac2_state)
+  else if (digitalRead(ev2) == true)
   {
     strcat(mess, ev2_apikey);
     strcat(mess, "&0");
@@ -124,14 +124,14 @@ void send_ev_states()
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
-  if (!ac3_state)
+  if (digitalRead(ev3) == false)
   {
     strcat(mess, ev3_apikey);
     strcat(mess, "&1");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
   }
-  else if (ac3_state)
+  else if (digitalRead(ev3) == true)
   {
     strcat(mess, ev3_apikey);
     strcat(mess, "&0");
@@ -139,14 +139,14 @@ void send_ev_states()
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
-  if (!ac4_state)
+  if (digitalRead(ev4) == false)
   {
     strcat(mess, ev4_apikey);
     strcat(mess, "&1");
     mess[12] = '\0';
     client.publish(sensorusertopic, mess);
   }
-  else if (ac4_state)
+  else if (digitalRead(ev4) == true)
   {
     strcat(mess, ev4_apikey);
     strcat(mess, "&0");
@@ -353,26 +353,30 @@ void setupSpiffs()
 void do_electrovalve_action(uint8_t electrovalve, bool action)
 {
   uint8_t electrovalve_num = electrovalve;
-  send_ev_states();
-  //if(humidity > _humidity_over_setp){
+  bool control_action = true;
+  
+  if(humidity < _humidity_setp && temperature > _temperature_setp && action == false)
+  {
+    control_action = false;
+  }
   switch (electrovalve_num)
   {
   case 1:
-    digitalWrite(ev1, action);
+    digitalWrite(ev1, action||control_action);
     break;
   case 2:
-    digitalWrite(ev2, action);
+    digitalWrite(ev2, action||control_action);
     break;
   case 3:
-    digitalWrite(ev3, action);
+    digitalWrite(ev3, action||control_action);
     break;
   case 4:
-    digitalWrite(ev4, action);
+    digitalWrite(ev4, action||control_action);
     break;
   default:
     break;
   }
-  //}
+  send_ev_states();
 }
 
 void eval_ac_inputs()
