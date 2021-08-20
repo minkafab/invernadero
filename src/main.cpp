@@ -51,6 +51,7 @@ char humidity_setp[4] = "200";
 char temperature_setp[4] = "45";
 const char usertopic[20] = "/3x1Z1njcje";
 const char replyusertopic[20] = "/3x1Z1njcje/reply/";
+const char sensorusertopic[20] = "/3x1Z1njcje/sensor/";
 const char hum_apikey[15] = "VCWG1njcrs";
 const char temp_apikey[15] = "sxdg1njcrt";
 
@@ -362,12 +363,39 @@ void eval_ac_inputs()
 
 void readSHT20()
 {
+  char mess[20];
+  char number[10];
   sht20.measure_all();
-  Serial.println((String)sht20.tempC + "°C");
-  Serial.println((String)sht20.dew_pointC + "°C dew point");
-  Serial.println((String)sht20.RH + " %RH");
-  Serial.println((String)sht20.vpd() + " kPa VPD");
-  Serial.println();
+  humidity = sht20.RH;
+  temperature = sht20.tempC;
+  if(temperature > 128.0){
+    //sensor desconectado
+    client.publish(sensorusertopic, "sensor desconectado");
+  }
+  else{
+    //sensor correcto - enviar data
+    dtostrf(humidity,4,2,number);
+    strcat(mess,hum_apikey);
+    strcat(mess,"&");
+    strcat(mess,number);
+    mess[16] = '\0';
+    Serial.println(mess);
+    client.publish(sensorusertopic, mess);
+    mess[0] = '\0';
+    dtostrf(temperature,4,2,number);
+    strcat(mess,temp_apikey);
+    strcat(mess,"&");
+    strcat(mess,number);
+    mess[16] = '\0';
+    Serial.println(mess);
+    client.publish(sensorusertopic, mess);
+    Serial.println((String)sht20.tempC + "°C");
+    //Serial.println((String)sht20.dew_pointC + "°C dew point");
+    Serial.println((String)sht20.RH + " %RH");
+    //Serial.println((String)sht20.vpd() + " kPa VPD");
+    Serial.println();
+  }
+  
 }
 
 void setup()
