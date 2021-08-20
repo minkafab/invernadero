@@ -52,6 +52,10 @@ char temperature_setp[4] = "45";
 const char usertopic[20] = "/3x1Z1njcje";
 const char replyusertopic[20] = "/3x1Z1njcje/reply/";
 const char sensorusertopic[20] = "/3x1Z1njcje/sensor/";
+const char ev1_apikey[20] = "3r5A1njcru";
+const char ev2_apikey[20] = "qC4O1njcrv";
+const char ev3_apikey[20] = "NjV91njcrw";
+const char ev4_apikey[20] = "vc1q1njcrx";
 const char hum_apikey[15] = "VCWG1njcrs";
 const char temp_apikey[15] = "sxdg1njcrt";
 
@@ -67,7 +71,8 @@ struct t
   uint32_t tTimeout;
 };
 //Tasks and their Schedules.
-t t_verify = {0, 30 * 1000}; //Run every x miliseconds
+t t_verify = {0, 60 * 1000}; //Run every x miliseconds
+t t_electrovalves_state = {0, 300 * 1000}; //Run every x miliseconds
 
 bool tCheck(struct t *t)
 {
@@ -83,6 +88,60 @@ bool tCheck(struct t *t)
 void tRun(struct t *t)
 {
   t->tStart = millis();
+}
+
+void send_ev_states(){
+  char mess[20];
+  mess[0] = '\0';
+  if(!ac1_state){
+    strcat(mess,ev1_apikey);
+    strcat(mess,"&1");
+    mess[12] = '\0';
+    client.publish(sensorusertopic, mess);
+  }else{
+    strcat(mess,ev1_apikey);
+    strcat(mess,"&0");
+    mess[12] = '\0';
+    client.publish(sensorusertopic, mess);
+  }
+  mess[0] = '\0';
+  if(!ac2_state){
+    strcat(mess,ev2_apikey);
+    strcat(mess,"&1");
+    mess[12] = '\0';
+    client.publish(sensorusertopic, mess);
+  }else{
+    strcat(mess,ev2_apikey);
+    strcat(mess,"&0");
+    mess[12] = '\0';
+    client.publish(sensorusertopic, mess);
+  }
+  mess[0] = '\0';
+  if(!ac3_state){
+    strcat(mess,ev3_apikey);
+    strcat(mess,"&1");
+    mess[12] = '\0';
+    client.publish(sensorusertopic, mess);
+  }else{
+    strcat(mess,ev3_apikey);
+    strcat(mess,"&0");
+    mess[12] = '\0';
+    client.publish(sensorusertopic, mess);
+  }
+  mess[0] = '\0';
+  if(!ac4_state){
+    strcat(mess,ev4_apikey);
+    strcat(mess,"&1");
+    mess[12] = '\0';
+    client.publish(sensorusertopic, mess);
+  }else{
+    strcat(mess,ev4_apikey);
+    strcat(mess,"&0");
+    mess[12] = '\0';
+    client.publish(sensorusertopic, mess);
+  }
+  mess[0] = '\0';
+
 }
 
 void save_conf(){
@@ -298,6 +357,7 @@ void do_electrovalve_action(uint8_t electrovalve, bool action)
     break;
   }
   //}
+  send_ev_states();
 }
 
 void eval_ac_inputs()
@@ -527,6 +587,10 @@ void loop()
   if (tCheck(&t_verify)) {
       readSHT20();
       tRun(&t_verify);
+    }
+    if (tCheck(&t_electrovalves_state)) {
+      send_ev_states();
+      tRun(&t_electrovalves_state);
     }
   if (digitalRead(sw) == LOW)
   {
