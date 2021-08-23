@@ -534,6 +534,7 @@ void setupSpiffs()
 void readSHT20()
 {
   char mess[20];
+  mess[0] = '\0';
   char number[10];
   sht20.measure_all();
   humidity = sht20.RH;
