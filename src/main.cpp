@@ -34,7 +34,7 @@ float temperature = 0.0;
 int _humidity_setp = 0;
 int _temperature_setp = 0;
 
-long debouncing_time = 100; //Debouncing Time in Milliseconds
+long debouncing_time = 100;   //Debouncing Time in Milliseconds
 long homing_max_time = 10000; //tiempo en milisegundos
 volatile unsigned long last_micros;
 volatile unsigned long last_millis;
@@ -79,7 +79,7 @@ struct t
   uint32_t tTimeout;
 };
 //Tasks and their Schedules.
-t t_verify = {0, 60 * 1000};               //Run every x miliseconds
+t t_verify = {0, 60 * 1000};              //Run every x miliseconds
 t t_electrovalves_state = {0, 67 * 1000}; //Run every x miliseconds
 t t_verify_screen = {0, 30 * 1000};
 
@@ -147,32 +147,30 @@ void send_ev_states()
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
-  
-  
 }
 
 void do_electrovalve_action(uint8_t electrovalve, bool action)
 {
   uint8_t electrovalve_num = electrovalve;
   bool control_action = true;
-  
-  if(humidity < _humidity_setp && temperature > _temperature_setp && action == false)
+
+  if (humidity < _humidity_setp && temperature > _temperature_setp && action == false)
   {
     control_action = false;
   }
   switch (electrovalve_num)
   {
   case 1:
-    digitalWrite(ev1, action||control_action);
+    digitalWrite(ev1, action || control_action);
     break;
   case 2:
-    digitalWrite(ev2, action||control_action);
+    digitalWrite(ev2, action || control_action);
     break;
   case 3:
-    digitalWrite(ev3, action||control_action);
+    digitalWrite(ev3, action || control_action);
     break;
   case 4:
-    digitalWrite(ev4, action||control_action);
+    digitalWrite(ev4, action || control_action);
     break;
   default:
     break;
@@ -242,7 +240,7 @@ void eval_ac_inputs()
   {
     Serial.println("UP: " + (String)!up_state);
     last_up_state = up_state;
-    if(!up_state)
+    if (!up_state)
     {
       screen_state = 0;
     }
@@ -259,7 +257,7 @@ void eval_ac_inputs()
   {
     Serial.println("DOWN: " + (String)!down_state);
     last_down_state = down_state;
-    if(!down_state)
+    if (!down_state)
     {
       screen_state = 1;
     }
@@ -272,7 +270,7 @@ void eval_ac_inputs()
       last_micros = micros();
     }
   }
-  if(up_state == down_state)
+  if (up_state == down_state)
   {
     screen_state = -1;
   }
@@ -281,40 +279,43 @@ void eval_ac_inputs()
 void openScreen()
 {
   eval_ac_inputs();
-  if(up_state == LOW)
+  if (up_state == LOW)
   {
-
-  }else{
+  }
+  else
+  {
     last_millis = millis();
     Serial.print("ABRIENDO CORTINA .");
     digitalWrite(dir, LOW);
-    while ((millis() - last_millis) <= homing_max_time && up_state == HIGH ){
-    eval_ac_inputs();
-    digitalWrite(pul, HIGH);
-    delayMicroseconds(200);
-    digitalWrite(pul, LOW);
-    delayMicroseconds(200);
+    while ((millis() - last_millis) <= homing_max_time && up_state == HIGH)
+    {
+      eval_ac_inputs();
+      digitalWrite(pul, HIGH);
+      delayMicroseconds(200);
+      digitalWrite(pul, LOW);
+      delayMicroseconds(200);
     }
-    
   }
 }
 
 void closeScreen()
 {
   eval_ac_inputs();
-  if(down_state == LOW)
+  if (down_state == LOW)
   {
-
-  }else{
+  }
+  else
+  {
     last_millis = millis();
     Serial.print("CERRANDO CORTINA .");
     digitalWrite(dir, HIGH);
-    while ((millis() - last_millis) <= homing_max_time && down_state == HIGH ){
-    eval_ac_inputs();
-    digitalWrite(pul, HIGH);
-    delayMicroseconds(200);
-    digitalWrite(pul, LOW);
-    delayMicroseconds(200);
+    while ((millis() - last_millis) <= homing_max_time && down_state == HIGH)
+    {
+      eval_ac_inputs();
+      digitalWrite(pul, HIGH);
+      delayMicroseconds(200);
+      digitalWrite(pul, LOW);
+      delayMicroseconds(200);
     }
     Serial.println("OK");
   }
@@ -689,11 +690,12 @@ void setup()
   client.setCallback(callback);
   reconnect();
   readSHT20();
-  last_millis=millis();
+  last_millis = millis();
   digitalWrite(dir, HIGH);
   digitalWrite(ena, LOW);
   eval_ac_inputs();
-  while ((millis() - last_millis) <= homing_max_time && up_state == HIGH ){
+  while ((millis() - last_millis) <= homing_max_time && up_state == HIGH)
+  {
     eval_ac_inputs();
     digitalWrite(pul, HIGH);
     delayMicroseconds(200);
@@ -718,11 +720,11 @@ void loop()
 
   if (tCheck(&t_verify_screen))
   {
-    if(temperature < _temperature_setp)
+    if (temperature < _temperature_setp)
     {
       closeScreen();
     }
-    if(humidity > _humidity_setp && temperature > _temperature_setp)
+    if (humidity > _humidity_setp && temperature > _temperature_setp)
     {
       openScreen();
     }
@@ -733,7 +735,7 @@ void loop()
     strcat(mess, screen_apikey);
     strcat(mess, "&");
     dtostrf(screen_state, 1, 1, number);
-    strcat(mess,number);
+    strcat(mess, number);
     mess[13] = '\0';
     client.publish(sensorusertopic, mess);
     mess[0] = '\0';
@@ -745,6 +747,7 @@ void loop()
     send_ev_states();
     tRun(&t_electrovalves_state);
   }
+
   if (digitalRead(sw) == LOW)
   {
     volatile unsigned long counter = millis();
@@ -768,5 +771,4 @@ void loop()
     reconnect();
   }
   client.loop();
-
 }
