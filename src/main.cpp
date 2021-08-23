@@ -51,6 +51,7 @@ bool last_ac3_state = false;
 bool last_ac4_state = false;
 bool last_up_state = false;
 bool last_down_state = false;
+int8_t screen_state = -1; //-1: undefined -- 1: closed -- 0: openned
 
 char mqtt_server[20] = "m2mlight.com";
 char humidity_setp[4] = "200";
@@ -64,6 +65,7 @@ const char ev3_apikey[20] = "NjV91njcrw";
 const char ev4_apikey[20] = "vc1q1njcrx";
 const char hum_apikey[15] = "VCWG1njcrs";
 const char temp_apikey[15] = "sxdg1njcrt";
+const char screen_apikey[15] = "YiEI1njcry";
 
 //flag for saving data
 bool shouldSaveConfig = false;
@@ -78,23 +80,8 @@ struct t
 };
 //Tasks and their Schedules.
 t t_verify = {0, 60 * 1000};               //Run every x miliseconds
-t t_electrovalves_state = {0, 300 * 1000}; //Run every x miliseconds
-
-bool tCheck(struct t *t)
-{
-  if (millis() >= t->tStart + t->tTimeout)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-void tRun(struct t *t)
-{
-  t->tStart = millis();
-}
+t t_electrovalves_state = {0, 67 * 1000}; //Run every x miliseconds
+t t_verify_screen = {0, 30 * 1000};
 
 void send_ev_states()
 {
@@ -160,6 +147,194 @@ void send_ev_states()
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
+  
+  
+}
+
+void do_electrovalve_action(uint8_t electrovalve, bool action)
+{
+  uint8_t electrovalve_num = electrovalve;
+  bool control_action = true;
+  
+  if(humidity < _humidity_setp && temperature > _temperature_setp && action == false)
+  {
+    control_action = false;
+  }
+  switch (electrovalve_num)
+  {
+  case 1:
+    digitalWrite(ev1, action||control_action);
+    break;
+  case 2:
+    digitalWrite(ev2, action||control_action);
+    break;
+  case 3:
+    digitalWrite(ev3, action||control_action);
+    break;
+  case 4:
+    digitalWrite(ev4, action||control_action);
+    break;
+  default:
+    break;
+  }
+  send_ev_states();
+}
+
+void eval_ac_inputs()
+{
+  if (last_ac1_state != ac1_state)
+  {
+    Serial.println("AC1: " + (String)!ac1_state);
+    do_electrovalve_action(1, ac1_state);
+    last_ac1_state = ac1_state;
+  }
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac1) != ac1_state)
+    {
+      ac1_state = digitalRead(ac1);
+      last_micros = micros();
+    }
+  }
+  if (last_ac2_state != ac2_state)
+  {
+    Serial.println("\tAC2: " + (String)!ac2_state);
+    do_electrovalve_action(2, ac2_state);
+    last_ac2_state = ac2_state;
+  }
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac2) != ac2_state)
+    {
+      ac2_state = digitalRead(ac2);
+      last_micros = micros();
+    }
+  }
+  if (last_ac3_state != ac3_state)
+  {
+    Serial.println("\t\tAC3: " + (String)!ac3_state);
+    do_electrovalve_action(3, ac3_state);
+    last_ac3_state = ac3_state;
+  }
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac3) != ac3_state)
+    {
+      ac3_state = digitalRead(ac3);
+      last_micros = micros();
+    }
+  }
+  if (last_ac4_state != ac4_state)
+  {
+    Serial.println("\t\t\tAC4: " + (String)!ac4_state);
+    do_electrovalve_action(4, ac4_state);
+    last_ac4_state = ac4_state;
+  }
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac4) != ac4_state)
+    {
+      ac4_state = digitalRead(ac4);
+      last_micros = micros();
+    }
+  }
+  if (last_up_state != up_state)
+  {
+    Serial.println("UP: " + (String)!up_state);
+    last_up_state = up_state;
+    if(!up_state)
+    {
+      screen_state = 0;
+    }
+  }
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(is_up) != up_state)
+    {
+      up_state = digitalRead(is_up);
+      last_micros = micros();
+    }
+  }
+  if (last_down_state != down_state)
+  {
+    Serial.println("DOWN: " + (String)!down_state);
+    last_down_state = down_state;
+    if(!down_state)
+    {
+      screen_state = 1;
+    }
+  }
+  else
+  {
+    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(is_down) != down_state)
+    {
+      down_state = digitalRead(is_down);
+      last_micros = micros();
+    }
+  }
+  if(up_state == down_state)
+  {
+    screen_state = -1;
+  }
+}
+
+void openScreen()
+{
+  eval_ac_inputs();
+  if(up_state == LOW)
+  {
+
+  }else{
+    last_millis = millis();
+    Serial.print("ABRIENDO CORTINA .");
+    digitalWrite(dir, LOW);
+    while ((millis() - last_millis) <= homing_max_time && up_state == HIGH ){
+    eval_ac_inputs();
+    digitalWrite(pul, HIGH);
+    delayMicroseconds(200);
+    digitalWrite(pul, LOW);
+    delayMicroseconds(200);
+    }
+    
+  }
+}
+
+void closeScreen()
+{
+  eval_ac_inputs();
+  if(down_state == LOW)
+  {
+
+  }else{
+    last_millis = millis();
+    Serial.print("CERRANDO CORTINA .");
+    digitalWrite(dir, HIGH);
+    while ((millis() - last_millis) <= homing_max_time && down_state == HIGH ){
+    eval_ac_inputs();
+    digitalWrite(pul, HIGH);
+    delayMicroseconds(200);
+    digitalWrite(pul, LOW);
+    delayMicroseconds(200);
+    }
+    Serial.println("OK");
+  }
+}
+
+bool tCheck(struct t *t)
+{
+  if (millis() >= t->tStart + t->tTimeout)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+void tRun(struct t *t)
+{
+  t->tStart = millis();
 }
 
 void save_conf()
@@ -356,121 +531,6 @@ void setupSpiffs()
   //end read
 }
 
-void do_electrovalve_action(uint8_t electrovalve, bool action)
-{
-  uint8_t electrovalve_num = electrovalve;
-  bool control_action = true;
-  
-  if(humidity < _humidity_setp && temperature > _temperature_setp && action == false)
-  {
-    control_action = false;
-  }
-  switch (electrovalve_num)
-  {
-  case 1:
-    digitalWrite(ev1, action||control_action);
-    break;
-  case 2:
-    digitalWrite(ev2, action||control_action);
-    break;
-  case 3:
-    digitalWrite(ev3, action||control_action);
-    break;
-  case 4:
-    digitalWrite(ev4, action||control_action);
-    break;
-  default:
-    break;
-  }
-  send_ev_states();
-}
-
-void eval_ac_inputs()
-{
-  if (last_ac1_state != ac1_state)
-  {
-    Serial.println("AC1: " + (String)!ac1_state);
-    do_electrovalve_action(1, ac1_state);
-    last_ac1_state = ac1_state;
-  }
-  else
-  {
-    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac1) != ac1_state)
-    {
-      ac1_state = digitalRead(ac1);
-      last_micros = micros();
-    }
-  }
-  if (last_ac2_state != ac2_state)
-  {
-    Serial.println("\tAC2: " + (String)!ac2_state);
-    do_electrovalve_action(2, ac2_state);
-    last_ac2_state = ac2_state;
-  }
-  else
-  {
-    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac2) != ac2_state)
-    {
-      ac2_state = digitalRead(ac2);
-      last_micros = micros();
-    }
-  }
-  if (last_ac3_state != ac3_state)
-  {
-    Serial.println("\t\tAC3: " + (String)!ac3_state);
-    do_electrovalve_action(3, ac3_state);
-    last_ac3_state = ac3_state;
-  }
-  else
-  {
-    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac3) != ac3_state)
-    {
-      ac3_state = digitalRead(ac3);
-      last_micros = micros();
-    }
-  }
-  if (last_ac4_state != ac4_state)
-  {
-    Serial.println("\t\t\tAC4: " + (String)!ac4_state);
-    do_electrovalve_action(4, ac4_state);
-    last_ac4_state = ac4_state;
-  }
-  else
-  {
-    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(ac4) != ac4_state)
-    {
-      ac4_state = digitalRead(ac4);
-      last_micros = micros();
-    }
-  }
-  if (last_up_state != up_state)
-  {
-    Serial.println("UP: " + (String)!up_state);
-    last_up_state = up_state;
-  }
-  else
-  {
-    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(is_up) != up_state)
-    {
-      up_state = digitalRead(is_up);
-      last_micros = micros();
-    }
-  }
-  if (last_down_state != down_state)
-  {
-    Serial.println("DOWN: " + (String)!down_state);
-    last_down_state = down_state;
-  }
-  else
-  {
-    if ((long)(micros() - last_micros) >= debouncing_time * 1000 && digitalRead(is_down) != down_state)
-    {
-      down_state = digitalRead(is_down);
-      last_micros = micros();
-    }
-  }
-}
-
 void readSHT20()
 {
   char mess[20];
@@ -652,39 +712,33 @@ void loop()
   if (tCheck(&t_verify))
   {
     readSHT20();
-
-
-
-    digitalWrite(dir, HIGH); // Enables the motor to move in a particular direction
-    digitalWrite(ena, LOW);
-  // Makes 200 pulses for making one full cycle rotation
-  for (int x = 0; x < 10000; x++)
-  {
-    digitalWrite(pul, HIGH);
-    delayMicroseconds(200);
-    digitalWrite(pul, LOW);
-    delayMicroseconds(200);
-  }
-  delay(50); // One second delay
-
-  digitalWrite(dir, LOW); //Changes the rotations direction
-  // Makes 400 pulses for making two full cycle rotation
-  for (int x = 0; x < 10000; x++)
-  {
-    digitalWrite(pul, HIGH);
-    delayMicroseconds(200);
-    digitalWrite(pul, LOW);
-    delayMicroseconds(200);
-  }
-  delay(50);
-  digitalWrite(ena, HIGH);
-
-
-
-
-
     tRun(&t_verify);
   }
+
+  if (tCheck(&t_verify_screen))
+  {
+    if(temperature < _temperature_setp)
+    {
+      closeScreen();
+    }
+    if(humidity > _humidity_setp && temperature > _temperature_setp)
+    {
+      openScreen();
+    }
+    eval_ac_inputs();
+    char number[5];
+    char mess[20];
+    mess[0] = '\0';
+    strcat(mess, screen_apikey);
+    strcat(mess, "&");
+    dtostrf(screen_state, 1, 1, number);
+    strcat(mess,number);
+    mess[13] = '\0';
+    client.publish(sensorusertopic, mess);
+    mess[0] = '\0';
+    tRun(&t_verify_screen);
+  }
+
   if (tCheck(&t_electrovalves_state))
   {
     send_ev_states();
@@ -714,79 +768,4 @@ void loop()
   }
   client.loop();
 
-  // put your main code here, to run repeatedly:
-  //delay(1000);
-  //cont++;
-
-  /*
-  //if(digitalRead(is_up)) Serial.println("inductivo UP en alto");
-  //else Serial.println("inductivo UP en bajo");
-  //if(digitalRead(is_down)) Serial.println("inductivo DOWN en alto");
-  //else Serial.println("inductivo DOWN en bajo");
-  //if(digitalRead(ac1) == LOW || digitalRead(ac2) == LOW || digitalRead(ac3) == LOW || digitalRead(ac4) == LOW) digitalWrite(led, HIGH);
-  /*if(digitalRead(ac1) == LOW) {
-    Serial.println("SIN AC1");
-    digitalWrite(led, LOW);
-    }
-  else { 
-    Serial.println("CON AC1");
-  digitalWrite(led, HIGH);
-  }
-  if(digitalRead(ac2) == LOW) {
-    Serial.println("\tSIN AC2");
-    digitalWrite(led, LOW);
-    }
-  else { 
-    Serial.println("\tCON AC2");
-  digitalWrite(led, HIGH);
-  }
-  if(digitalRead(ac3) == LOW) {
-    Serial.println("\t\tSIN AC3");
-    digitalWrite(led, LOW);
-    }
-  else { 
-    Serial.println("\t\tCON AC3");
-  digitalWrite(led, HIGH);
-  }
-  if(digitalRead(ac4) == LOW) {
-    Serial.println("\t\t\tSIN AC4");
-    digitalWrite(led, LOW);
-    }
-  else { 
-    Serial.println("\t\t\tCON AC4");
-  digitalWrite(led, HIGH);
-  }
-  delay(500);*/
-
-  /*digitalWrite(dir, HIGH); // Enables the motor to move in a particular direction
-  digitalWrite(ena, LOW);
-  // Makes 200 pulses for making one full cycle rotation
-  for (int x = 0; x < 10000; x++)
-  {
-    digitalWrite(pul, HIGH);
-    delayMicroseconds(200);
-    digitalWrite(pul, LOW);
-    delayMicroseconds(200);
-  }
-  delay(50); // One second delay
-
-  digitalWrite(dir, LOW); //Changes the rotations direction
-  // Makes 400 pulses for making two full cycle rotation
-  for (int x = 0; x < 10000; x++)
-  {
-    digitalWrite(pul, HIGH);
-    delayMicroseconds(200);
-    digitalWrite(pul, LOW);
-    delayMicroseconds(200);
-  }
-  delay(50);
-  digitalWrite(ena, HIGH);*/
-}
-
-void subirCortina()
-{
-}
-
-void bajarCortina()
-{
 }
