@@ -274,6 +274,18 @@ void eval_ac_inputs()
   {
     screen_state = -1;
   }
+  else
+  {
+    if (!down_state)
+    {
+      screen_state = 1;
+    }
+    else if (!up_state)
+    {
+      screen_state = 0;
+    }
+
+  }
 }
 
 void openScreen()
