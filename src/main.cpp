@@ -26,6 +26,8 @@ WiFiManager wm;
 #define ev3 17 //Electrovalve Relay output 3
 #define ev4 18 //Electrovalve Relay output 4
 
+#define led 5 //Led for blink on Wifi State
+
 uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
 uint8_t cont = 0;
 
@@ -456,6 +458,9 @@ void callback(char *topico, byte *payload, unsigned int length)
 void reconnect()
 {
   // Loop until we're reconnected
+  if(!WiFi.isConnected()){
+    ESP.restart();
+  }
   while (!client.connected())
   {
     Serial.print("Attempting MQTT connection...");
@@ -594,6 +599,8 @@ void setup()
   pinMode(ev2, OUTPUT);
   pinMode(ev3, OUTPUT);
   pinMode(ev4, OUTPUT);
+  pinMode(led, OUTPUT);
+  digitalWrite(led, LOW);
   digitalWrite(ev1, HIGH);
   digitalWrite(ev2, HIGH);
   digitalWrite(ev3, HIGH);
@@ -647,7 +654,7 @@ void setup()
   bool res;
   // res = wm.autoConnect(); // auto generated AP name from chipid
   // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
-  res = wm.autoConnect("AutoConnectAP", "password"); // password protected ap
+  res = wm.autoConnect("INVERNADERO", "minka20194586"); // password protected ap
 
   if (!res)
   {
@@ -656,11 +663,13 @@ void setup()
     //ledcSetup(0, 1000, 4);
     //ledcWrite(0, 4);
     // ESP.restart();
+    digitalWrite(led, LOW);
   }
   else
   {
     //if you get here you have connected to the WiFi
     Serial.println("connected...yeey :)");
+    digitalWrite(led, HIGH);
   }
 
   strcpy(humidity_setp, custom_humidity_setp.getValue());
