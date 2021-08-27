@@ -89,69 +89,69 @@ void send_ev_states()
 {
   char mess[20];
   mess[0] = '\0';
-  if(WiFi.isConnected()) {
-  if (digitalRead(ev1) == false)
+  if (WiFi.isConnected())
   {
-    strcat(mess, ev1_apikey);
-    strcat(mess, "&1");
-    mess[12] = '\0';
-    client.publish(sensorusertopic, mess);
+    if (digitalRead(ev1) == false)
+    {
+      strcat(mess, ev1_apikey);
+      strcat(mess, "&1");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    else if (digitalRead(ev1) == true)
+    {
+      strcat(mess, ev1_apikey);
+      strcat(mess, "&0");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    mess[0] = '\0';
+    if (digitalRead(ev2) == false)
+    {
+      strcat(mess, ev2_apikey);
+      strcat(mess, "&1");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    else if (digitalRead(ev2) == true)
+    {
+      strcat(mess, ev2_apikey);
+      strcat(mess, "&0");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    mess[0] = '\0';
+    if (digitalRead(ev3) == false)
+    {
+      strcat(mess, ev3_apikey);
+      strcat(mess, "&1");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    else if (digitalRead(ev3) == true)
+    {
+      strcat(mess, ev3_apikey);
+      strcat(mess, "&0");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    mess[0] = '\0';
+    if (digitalRead(ev4) == false)
+    {
+      strcat(mess, ev4_apikey);
+      strcat(mess, "&1");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    else if (digitalRead(ev4) == true)
+    {
+      strcat(mess, ev4_apikey);
+      strcat(mess, "&0");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    mess[0] = '\0';
   }
-  else if (digitalRead(ev1) == true)
-  {
-    strcat(mess, ev1_apikey);
-    strcat(mess, "&0");
-    mess[12] = '\0';
-    client.publish(sensorusertopic, mess);
-  }
-  mess[0] = '\0';
-  if (digitalRead(ev2) == false)
-  {
-    strcat(mess, ev2_apikey);
-    strcat(mess, "&1");
-    mess[12] = '\0';
-    client.publish(sensorusertopic, mess);
-  }
-  else if (digitalRead(ev2) == true)
-  {
-    strcat(mess, ev2_apikey);
-    strcat(mess, "&0");
-    mess[12] = '\0';
-    client.publish(sensorusertopic, mess);
-  }
-  mess[0] = '\0';
-  if (digitalRead(ev3) == false)
-  {
-    strcat(mess, ev3_apikey);
-    strcat(mess, "&1");
-    mess[12] = '\0';
-    client.publish(sensorusertopic, mess);
-  }
-  else if (digitalRead(ev3) == true)
-  {
-    strcat(mess, ev3_apikey);
-    strcat(mess, "&0");
-    mess[12] = '\0';
-    client.publish(sensorusertopic, mess);
-  }
-  mess[0] = '\0';
-  if (digitalRead(ev4) == false)
-  {
-    strcat(mess, ev4_apikey);
-    strcat(mess, "&1");
-    mess[12] = '\0';
-    client.publish(sensorusertopic, mess);
-  }
-  else if (digitalRead(ev4) == true)
-  {
-    strcat(mess, ev4_apikey);
-    strcat(mess, "&0");
-    mess[12] = '\0';
-    client.publish(sensorusertopic, mess);
-  }
-  mess[0] = '\0';
-}
-  
 }
 
 void do_electrovalve_action(uint8_t electrovalve, bool action)
@@ -289,7 +289,6 @@ void eval_ac_inputs()
     {
       screen_state = 0;
     }
-
   }
 }
 
@@ -460,12 +459,12 @@ void callback(char *topico, byte *payload, unsigned int length)
 
 void reconnect()
 {
-  uint8_t tries=0;
+  uint8_t tries = 0;
   // Loop until we're reconnected
   //if(!WiFi.isConnected()){
   //  ESP.restart();
   //}
-  while (!client.connected() && tries < 3 && WiFi.isConnected() )
+  while (!client.connected() && tries < 3 && WiFi.isConnected())
   {
     Serial.print(F("Attempting MQTT connection..."));
     // Attempt to connect
@@ -565,13 +564,15 @@ void readSHT20()
   if (temperature > 128.0)
   {
     //sensor desconectado
-    if(WiFi.isConnected()) client.publish(sensorusertopic, "sensor desconectado");
+    if (WiFi.isConnected())
+      client.publish(sensorusertopic, "sensor desconectado");
   }
   else
   {
     //sensor correcto - enviar data
-    if(WiFi.isConnected()){
-        dtostrf(humidity, 4, 2, number);
+    if (WiFi.isConnected())
+    {
+      dtostrf(humidity, 4, 2, number);
       strcat(mess, hum_apikey);
       strcat(mess, "&");
       strcat(mess, number);
@@ -592,7 +593,6 @@ void readSHT20()
       //Serial.println((String)sht20.vpd() + " kPa VPD");
       Serial.println();
     }
-    
   }
 }
 
@@ -718,7 +718,6 @@ void setup()
   Serial.println(WiFi.gatewayIP());
   Serial.println(WiFi.subnetMask());
 
-  
   readSHT20();
   last_millis = millis();
   digitalWrite(dir, HIGH);
@@ -758,6 +757,10 @@ void loop()
     {
       openScreen();
     }
+    else
+    {
+      closeScreen();
+    }
     eval_ac_inputs();
     char number[5];
     char mess[20];
@@ -767,7 +770,8 @@ void loop()
     dtostrf(screen_state, 1, 1, number);
     strcat(mess, number);
     mess[13] = '\0';
-    if(WiFi.isConnected()) client.publish(sensorusertopic, mess);
+    if (WiFi.isConnected())
+      client.publish(sensorusertopic, mess);
     mess[0] = '\0';
     tRun(&t_verify_screen);
   }
@@ -800,5 +804,6 @@ void loop()
   {
     reconnect();
   }
-  if(WiFi.isConnected()) client.loop();
+  if (WiFi.isConnected())
+    client.loop();
 }
