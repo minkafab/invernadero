@@ -465,9 +465,9 @@ void reconnect()
 {
   uint8_t tries = 0;
   // Loop until we're reconnected
-  //if(!WiFi.isConnected()){
-  //  ESP.restart();
-  //}
+  if(!WiFi.isConnected()){
+    ESP.restart();
+  }
   while (!client.connected() && tries < 3 && WiFi.isConnected())
   {
     Serial.print(F("Attempting MQTT connection..."));
@@ -635,6 +635,7 @@ void setup()
   pinMode(pul, OUTPUT);
   pinMode(dir, OUTPUT);
   pinMode(ena, OUTPUT);
+  digitalWrite(ena,HIGH);
 
   pinMode(sw, INPUT);
 
@@ -794,6 +795,10 @@ void loop()
     }
     //Serial.println("SWITCH DADO");
     Serial.println(acum);
+    if (acum > 350)
+    {
+      Serial.println(F("Apertura de cortina, modo manual activado"));
+    }
     if (acum > 750)
     {
       Serial.println(F("RESET DONE"));
@@ -802,7 +807,7 @@ void loop()
     }
   }
 
-  if (!client.connected() && WiFi.isConnected())
+  if (!client.connected())
   {
     reconnect();
   }
