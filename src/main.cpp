@@ -89,6 +89,7 @@ void send_ev_states()
 {
   char mess[20];
   mess[0] = '\0';
+  if(WiFi.isConnected()) {
   if (digitalRead(ev1) == false)
   {
     strcat(mess, ev1_apikey);
@@ -149,6 +150,8 @@ void send_ev_states()
     client.publish(sensorusertopic, mess);
   }
   mess[0] = '\0';
+}
+  
 }
 
 void do_electrovalve_action(uint8_t electrovalve, bool action)
@@ -299,7 +302,7 @@ void openScreen()
   else
   {
     last_millis = millis();
-    Serial.print("ABRIENDO CORTINA .");
+    Serial.print(F("ABRIENDO CORTINA ."));
     digitalWrite(dir, LOW);
     while ((millis() - last_millis) <= homing_max_time && up_state == HIGH)
     {
@@ -321,7 +324,7 @@ void closeScreen()
   else
   {
     last_millis = millis();
-    Serial.print("CERRANDO CORTINA .");
+    Serial.print(F("CERRANDO CORTINA ."));
     digitalWrite(dir, HIGH);
     while ((millis() - last_millis) <= homing_max_time && down_state == HIGH)
     {
@@ -354,7 +357,7 @@ void tRun(struct t *t)
 
 void save_conf()
 {
-  Serial.println("saving config");
+  Serial.println(F("saving config"));
   DynamicJsonBuffer jsonBuffer;
   JsonObject &json = jsonBuffer.createObject();
   json["humidity_setp"] = humidity_setp;
@@ -363,7 +366,7 @@ void save_conf()
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile)
   {
-    Serial.println("failed to open config file for writing");
+    Serial.println(F("failed to open config file for writing"));
   }
 
   json.prettyPrintTo(Serial);
@@ -405,12 +408,12 @@ void callback(char *topico, byte *payload, unsigned int length)
     rit += 2;
     if (strcmp(rit, (char *)temp_apikey) == 0)
     {
-      Serial.println("TEMPERATURA");
+      Serial.println(F("TEMPERATURA"));
       type = 1;
     }
     if (strcmp(rit, (char *)hum_apikey) == 0)
     {
-      Serial.println("HUMEDAD");
+      Serial.println(F("HUMEDAD"));
       type = 2;
     }
     Serial.println("---------------------------------------------------");
@@ -436,7 +439,7 @@ void callback(char *topico, byte *payload, unsigned int length)
       sscanf(willbeint, "%d", &new_setpoint);
       if (type == 1)
       {
-        Serial.println("actualizacion para temperatura");
+        Serial.println(F("actualizacion para temperatura"));
         //Serial.println(temperature_setp);
         strncpy(temperature_setp, willbeint, 3);
         //Serial.println(temperature_setp);
@@ -444,7 +447,7 @@ void callback(char *topico, byte *payload, unsigned int length)
       }
       if (type == 2)
       {
-        Serial.println("actualizacion para humedad");
+        Serial.println(F("actualizacion para humedad"));
         //Serial.println(temperature_setp);
         strncpy(humidity_setp, willbeint, 3);
         //Serial.println(temperature_setp);
@@ -457,17 +460,18 @@ void callback(char *topico, byte *payload, unsigned int length)
 
 void reconnect()
 {
+  uint8_t tries=0;
   // Loop until we're reconnected
-  if(!WiFi.isConnected()){
-    ESP.restart();
-  }
-  while (!client.connected())
+  //if(!WiFi.isConnected()){
+  //  ESP.restart();
+  //}
+  while (!client.connected() && tries < 3 && WiFi.isConnected() )
   {
-    Serial.print("Attempting MQTT connection...");
+    Serial.print(F("Attempting MQTT connection..."));
     // Attempt to connect
     if (client.connect("arduinoClient", "mqtt", "m2mlight12"))
     {
-      Serial.println("connected");
+      Serial.println(F("connected"));
       // Once connected, publish an announcement...
       //client.publish(topic,"hello world");
       // ... and resubscribe
@@ -475,9 +479,10 @@ void reconnect()
     }
     else
     {
-      Serial.print("failed, rc=");
+      Serial.print(F("failed, rc="));
       Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
+      Serial.println(F(" try again in 5 seconds"));
+      tries++;
       // Wait 5 seconds before retrying
       //delay(5000);
     }
@@ -487,7 +492,7 @@ void reconnect()
 //callback notifying us of the need to save config
 void saveConfigCallback()
 {
-  Serial.println("Should save config");
+  Serial.println(F("Should save config"));
   shouldSaveConfig = true;
 }
 
@@ -501,15 +506,15 @@ void setupSpiffs()
 
   if (SPIFFS.begin())
   {
-    Serial.println("mounted file system");
+    Serial.println(F("mounted file system"));
     if (SPIFFS.exists("/config.json"))
     {
       //file exists, reading and loading
-      Serial.println("reading config file");
+      Serial.println(F("reading config file"));
       File configFile = SPIFFS.open("/config.json", "r");
       if (configFile)
       {
-        Serial.println("opened config file");
+        Serial.println(F("opened config file"));
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -520,7 +525,7 @@ void setupSpiffs()
         json.printTo(Serial);
         if (json.success())
         {
-          Serial.println("\nparsed json");
+          Serial.println(F("\nparsed json"));
 
           strcpy(humidity_setp, json["humidity_setp"]);
           strcpy(temperature_setp, json["temperature_setp"]);
@@ -537,14 +542,14 @@ void setupSpiffs()
         }
         else
         {
-          Serial.println("failed to load json config");
+          Serial.println(F("failed to load json config"));
         }
       }
     }
   }
   else
   {
-    Serial.println("failed to mount FS");
+    Serial.println(F("failed to mount FS"));
   }
   //end read
 }
@@ -560,31 +565,34 @@ void readSHT20()
   if (temperature > 128.0)
   {
     //sensor desconectado
-    client.publish(sensorusertopic, "sensor desconectado");
+    if(WiFi.isConnected()) client.publish(sensorusertopic, "sensor desconectado");
   }
   else
   {
     //sensor correcto - enviar data
-    dtostrf(humidity, 4, 2, number);
-    strcat(mess, hum_apikey);
-    strcat(mess, "&");
-    strcat(mess, number);
-    mess[16] = '\0';
-    Serial.println(mess);
-    client.publish(sensorusertopic, mess);
-    mess[0] = '\0';
-    dtostrf(temperature, 4, 2, number);
-    strcat(mess, temp_apikey);
-    strcat(mess, "&");
-    strcat(mess, number);
-    mess[16] = '\0';
-    Serial.println(mess);
-    client.publish(sensorusertopic, mess);
-    Serial.println((String)sht20.tempC + "°C");
-    //Serial.println((String)sht20.dew_pointC + "°C dew point");
-    Serial.println((String)sht20.RH + " %RH");
-    //Serial.println((String)sht20.vpd() + " kPa VPD");
-    Serial.println();
+    if(WiFi.isConnected()){
+        dtostrf(humidity, 4, 2, number);
+      strcat(mess, hum_apikey);
+      strcat(mess, "&");
+      strcat(mess, number);
+      mess[16] = '\0';
+      Serial.println(mess);
+      client.publish(sensorusertopic, mess);
+      mess[0] = '\0';
+      dtostrf(temperature, 4, 2, number);
+      strcat(mess, temp_apikey);
+      strcat(mess, "&");
+      strcat(mess, number);
+      mess[16] = '\0';
+      Serial.println(mess);
+      client.publish(sensorusertopic, mess);
+      Serial.println((String)sht20.tempC + "°C");
+      //Serial.println((String)sht20.dew_pointC + "°C dew point");
+      Serial.println((String)sht20.RH + " %RH");
+      //Serial.println((String)sht20.vpd() + " kPa VPD");
+      Serial.println();
+    }
+    
   }
 }
 
@@ -627,7 +635,7 @@ void setup()
   pinMode(sw, INPUT);
 
   Serial.begin(115200);
-  Serial.println("HOLA MUNDO");
+  Serial.println(F("HOLA MUNDO"));
 
   Wire.begin();
   sht20.begin();
@@ -658,7 +666,7 @@ void setup()
 
   if (!res)
   {
-    Serial.println("Failed to connect");
+    Serial.println(F("Failed to connect"));
     //ledcAttachPin(ev4, 0);
     //ledcSetup(0, 1000, 4);
     //ledcWrite(0, 4);
@@ -668,8 +676,11 @@ void setup()
   else
   {
     //if you get here you have connected to the WiFi
-    Serial.println("connected...yeey :)");
+    Serial.println(F("connected...yeey :)"));
     digitalWrite(led, HIGH);
+    client.setServer(mqtt_server, 1883);
+    client.setCallback(callback);
+    reconnect();
   }
 
   strcpy(humidity_setp, custom_humidity_setp.getValue());
@@ -679,7 +690,7 @@ void setup()
 
   if (shouldSaveConfig)
   {
-    Serial.println("saving config");
+    Serial.println(F("saving config"));
     DynamicJsonBuffer jsonBuffer;
     JsonObject &json = jsonBuffer.createObject();
     json["humidity_setp"] = humidity_setp;
@@ -692,7 +703,7 @@ void setup()
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile)
     {
-      Serial.println("failed to open config file for writing");
+      Serial.println(F("failed to open config file for writing"));
     }
 
     json.prettyPrintTo(Serial);
@@ -702,14 +713,12 @@ void setup()
     shouldSaveConfig = false;
   }
 
-  Serial.println("local ip");
+  Serial.println(F("local ip"));
   Serial.println(WiFi.localIP());
   Serial.println(WiFi.gatewayIP());
   Serial.println(WiFi.subnetMask());
 
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
-  reconnect();
+  
   readSHT20();
   last_millis = millis();
   digitalWrite(dir, HIGH);
@@ -724,10 +733,10 @@ void setup()
     delayMicroseconds(200);
   }
 
-  Serial.println("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++");
+  Serial.println(F("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++"));
   Serial.printf("Temperature set point: %d \n", _temperature_setp);
   Serial.printf("Humidity set point: %d \n", _humidity_setp);
-  Serial.println("+++++++++            END            +++++++++");
+  Serial.println(F("+++++++++            END            +++++++++"));
 }
 
 void loop()
@@ -758,7 +767,7 @@ void loop()
     dtostrf(screen_state, 1, 1, number);
     strcat(mess, number);
     mess[13] = '\0';
-    client.publish(sensorusertopic, mess);
+    if(WiFi.isConnected()) client.publish(sensorusertopic, mess);
     mess[0] = '\0';
     tRun(&t_verify_screen);
   }
@@ -781,15 +790,15 @@ void loop()
     Serial.println(acum);
     if (acum > 3000000)
     {
-      Serial.println("RESET DONE");
+      Serial.println(F("RESET DONE"));
       wm.resetSettings();
       ESP.restart();
     }
   }
 
-  if (!client.connected())
+  if (!client.connected() && WiFi.isConnected())
   {
     reconnect();
   }
-  client.loop();
+  if(WiFi.isConnected()) client.loop();
 }
