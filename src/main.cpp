@@ -295,6 +295,7 @@ void eval_ac_inputs()
 void openScreen()
 {
   eval_ac_inputs();
+  digitalWrite(ena, LOW);
   if (up_state == LOW)
   {
   }
@@ -319,12 +320,14 @@ void closeScreen()
   eval_ac_inputs();
   if (down_state == LOW)
   {
+    digitalWrite(ena, HIGH);
   }
   else
   {
     last_millis = millis();
     Serial.print(F("CERRANDO CORTINA ."));
     digitalWrite(dir, HIGH);
+    digitalWrite(ena, LOW);
     while ((millis() - last_millis) <= homing_max_time && down_state == HIGH)
     {
       eval_ac_inputs();
@@ -333,6 +336,7 @@ void closeScreen()
       digitalWrite(pul, LOW);
       delayMicroseconds(200);
     }
+    digitalWrite(ena, HIGH);
     Serial.println("OK");
   }
 }
@@ -720,7 +724,7 @@ void setup()
 
   readSHT20();
   last_millis = millis();
-  digitalWrite(dir, HIGH);
+  digitalWrite(dir, LOW);
   digitalWrite(ena, LOW);
   eval_ac_inputs();
   while ((millis() - last_millis) <= homing_max_time && up_state == HIGH)
@@ -753,14 +757,11 @@ void loop()
     {
       closeScreen();
     }
-    if (humidity > _humidity_setp && temperature > _temperature_setp)
+    if (temperature > _temperature_setp)
     {
       openScreen();
     }
-    else
-    {
-      closeScreen();
-    }
+
     eval_ac_inputs();
     char number[5];
     char mess[20];
