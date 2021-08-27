@@ -787,13 +787,14 @@ void loop()
   {
     volatile unsigned long counter = millis();
     volatile unsigned long acum = 0;
-    while (digitalRead(sw) == LOW && millis() - counter < 5 * 1000)
+    while (digitalRead(sw) == LOW && millis() - counter < 8 * 1000)
     {
       acum++;
+      delay(10);
     }
     //Serial.println("SWITCH DADO");
     Serial.println(acum);
-    if (acum > 3000000)
+    if (acum > 750)
     {
       Serial.println(F("RESET DONE"));
       wm.resetSettings();
