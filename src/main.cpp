@@ -54,6 +54,7 @@ bool last_ac4_state = false;
 bool last_up_state = false;
 bool last_down_state = false;
 int8_t screen_state = -1; //-1: undefined -- 1: closed -- 0: openned
+bool controller_mode = true;
 
 char mqtt_server[20] = "m2mlight.com";
 char humidity_setp[4] = "200";
@@ -68,6 +69,7 @@ const char ev4_apikey[20] = "vc1q1njcrx";
 const char hum_apikey[15] = "VCWG1njcrs";
 const char temp_apikey[15] = "sxdg1njcrt";
 const char screen_apikey[15] = "YiEI1njcry";
+const char auto_man_apikey[15] = "ayMs1njcrz";
 
 //flag for saving data
 bool shouldSaveConfig = false;
@@ -151,6 +153,21 @@ void send_ev_states()
       client.publish(sensorusertopic, mess);
     }
     mess[0] = '\0';
+    if (controller_mode)
+    {
+      strcat(mess, auto_man_apikey);
+      strcat(mess, "&1");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    else
+    {
+      strcat(mess, auto_man_apikey);
+      strcat(mess, "&0");
+      mess[12] = '\0';
+      client.publish(sensorusertopic, mess);
+    }
+    mess[0] = '\0';
   }
 }
 
@@ -159,7 +176,7 @@ void do_electrovalve_action(uint8_t electrovalve, bool action)
   uint8_t electrovalve_num = electrovalve;
   bool control_action = true;
 
-  if (humidity < _humidity_setp && temperature > _temperature_setp && action == false)
+  if (humidity < _humidity_setp && temperature > _temperature_setp && action == false && controller_mode)
   {
     control_action = false;
   }
@@ -418,6 +435,12 @@ void callback(char *topico, byte *payload, unsigned int length)
     {
       Serial.println(F("HUMEDAD"));
       type = 2;
+    }
+    if (strcmp(rit, (char *)auto_man_apikey) == 0)
+    {
+      Serial.println(F("HUMEDAD"));
+      type = 3;
+      controller_mode = true;
     }
     Serial.println("---------------------------------------------------");
     if (fin > 5 || fin < 2)
@@ -754,11 +777,11 @@ void loop()
 
   if (tCheck(&t_verify_screen))
   {
-    if (temperature < _temperature_setp)
+    if (temperature < _temperature_setp && controller_mode)
     {
       closeScreen();
     }
-    if (temperature > _temperature_setp)
+    if (temperature > _temperature_setp && controller_mode)
     {
       openScreen();
     }
@@ -798,6 +821,8 @@ void loop()
     if (acum > 350)
     {
       Serial.println(F("Apertura de cortina, modo manual activado"));
+      controller_mode = false;
+      openScreen();
     }
     if (acum > 750)
     {
