@@ -38,6 +38,8 @@ int _temperature_setp = 0;
 
 long debouncing_time = 100;   //Debouncing Time in Milliseconds
 long homing_max_time = 10000; //tiempo en milisegundos
+long manual_mode_timeout = 2 * 62 * 1000;//tiempo maximo despues de un modo manual antes de pasar a modo automatico
+bool time_back_manual_mode = false;
 volatile unsigned long last_micros;
 volatile unsigned long last_millis;
 
@@ -768,10 +770,21 @@ void setup()
 
 void loop()
 {
+  
   eval_ac_inputs();
   if (tCheck(&t_verify))
   {
     readSHT20();
+    if(time_back_manual_mode){
+      manual_mode_timeout = manual_mode_timeout - t_verify.tTimeout;
+      Serial.println(manual_mode_timeout);
+      if(manual_mode_timeout < t_verify.tTimeout) {
+        controller_mode = true;
+        time_back_manual_mode = false;
+        manual_mode_timeout = 2 * 60 * 1000;
+        Serial.println("Se acabo el tiempo, volviendo a modo automatico");
+        }
+    }
     tRun(&t_verify);
   }
 
@@ -820,9 +833,18 @@ void loop()
     Serial.println(acum);
     if (acum > 350)
     {
-      Serial.println(F("Apertura de cortina, modo manual activado"));
-      controller_mode = false;
-      openScreen();
+      if(controller_mode == true){
+        Serial.println(F("Apertura de cortina, modo manual activado"));
+        controller_mode = false;
+        openScreen();
+        time_back_manual_mode = true;
+        //comienzo de cuenta atras de manual_mode_timeout
+      }else if(controller_mode == false){
+        controller_mode = true;
+        time_back_manual_mode = false;
+        Serial.println(F("modo manual DESACTIVADO"));
+        //closeScreen(); //no necesariamente necesita cerrarse.
+      }
     }
     if (acum > 750)
     {
