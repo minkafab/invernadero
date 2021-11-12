@@ -38,7 +38,7 @@ int _temperature_setp = 0;
 
 long debouncing_time = 100;   //Debouncing Time in Milliseconds
 long homing_max_time = 10000; //tiempo en milisegundos
-long manual_mode_timeout = 2 * 62 * 1000;//tiempo maximo despues de un modo manual antes de pasar a modo automatico
+long manual_mode_timeout = 2 * 3600 * 1000;//tiempo maximo despues de un modo manual antes de pasar a modo automatico
 bool time_back_manual_mode = false;
 volatile unsigned long last_micros;
 volatile unsigned long last_millis;
@@ -55,8 +55,8 @@ bool last_ac3_state = false;
 bool last_ac4_state = false;
 bool last_up_state = false;
 bool last_down_state = false;
-int8_t screen_state = -1; //-1: undefined -- 1: closed -- 0: openned
-bool controller_mode = true;
+int8_t screen_state = -1; //-1: undefined -- 1: closed -- 0: opened
+bool controller_mode = true; // TRUE = automatico
 
 char mqtt_server[20] = "m2mlight.com";
 char humidity_setp[4] = "200";
@@ -440,9 +440,11 @@ void callback(char *topico, byte *payload, unsigned int length)
     }
     if (strcmp(rit, (char *)auto_man_apikey) == 0)
     {
-      Serial.println(F("HUMEDAD"));
+      Serial.println(F("REGRESO A MODO AUTOMATICO"));
       type = 3;
       controller_mode = true;
+      time_back_manual_mode = false;
+      manual_mode_timeout = 2 * 3600 * 1000;
     }
     Serial.println("---------------------------------------------------");
     if (fin > 5 || fin < 2)
@@ -781,7 +783,7 @@ void loop()
       if(manual_mode_timeout < t_verify.tTimeout) {
         controller_mode = true;
         time_back_manual_mode = false;
-        manual_mode_timeout = 2 * 60 * 1000;
+        manual_mode_timeout = 2 * 3600 * 1000;
         Serial.println("Se acabo el tiempo, volviendo a modo automatico");
         }
     }
