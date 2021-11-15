@@ -433,18 +433,47 @@ void callback(char *topico, byte *payload, unsigned int length)
       Serial.println(F("TEMPERATURA"));
       type = 1;
     }
-    if (strcmp(rit, (char *)hum_apikey) == 0)
+    else if (strcmp(rit, (char *)hum_apikey) == 0)
     {
       Serial.println(F("HUMEDAD"));
       type = 2;
     }
-    if (strcmp(rit, (char *)auto_man_apikey) == 0)
+    else if (strcmp(rit, (char *)auto_man_apikey) == 0)
     {
       Serial.println(F("REGRESO A MODO AUTOMATICO"));
       type = 3;
       controller_mode = true;
       time_back_manual_mode = false;
       manual_mode_timeout = 2 * 3600 * 1000;
+      digitalWrite(ev1,HIGH);
+      digitalWrite(ev2,HIGH);
+      digitalWrite(ev3,HIGH);
+      digitalWrite(ev4,HIGH);
+    }
+    else if(strcmp(rit, (char *)ev1_apikey) == 0)
+    {
+      Serial.println(F("EV1-MODO MANUAL"));
+      type = 11;
+    }
+    else if(strcmp(rit, (char *)ev2_apikey) == 0)
+    {
+      Serial.println(F("EV2-MODO MANUAL"));
+      type = 12;
+    }
+    else if(strcmp(rit, (char *)ev3_apikey) == 0)
+    {
+      Serial.println(F("EV3-MODO MANUAL"));
+      type = 13;
+    }
+    else if(strcmp(rit, (char *)ev4_apikey) == 0)
+    {
+      Serial.println(F("EV4-MODO MANUAL"));
+      type = 14;
+    }
+    else if(strcmp(rit, (char *)screen_apikey) == 0)
+    {
+      Serial.println(F("CORTINA-MODO MANUAL"));
+      type = 15;
     }
     Serial.println("---------------------------------------------------");
     if (fin > 5 || fin < 2)
@@ -467,23 +496,79 @@ void callback(char *topico, byte *payload, unsigned int length)
       willbeint[fin - 2] = '\0';
       Serial.println(willbeint); //valor listo a ser convertido en entero
       sscanf(willbeint, "%d", &new_setpoint);
+      switch (type){
+        case 1:
+          Serial.println(F("actualizacion para temperatura"));
+          //Serial.println(temperature_setp);
+          strncpy(temperature_setp, willbeint, 3);
+          //Serial.println(temperature_setp);
+          _temperature_setp = new_setpoint;
+          save_conf();
+          break;
+        case 2:
+          Serial.println(F("actualizacion para humedad"));
+          //Serial.println(temperature_setp);
+          strncpy(humidity_setp, willbeint, 3);
+          //Serial.println(temperature_setp);
+          _humidity_setp = new_setpoint;
+          save_conf();
+          break;
+        case 11:
+          controller_mode = false; // activar modo manual = controller_mode = false
+          time_back_manual_mode = true; //
+          manual_mode_timeout = 2 * 3600 * 1000;
+          if(new_setpoint == 11) digitalWrite(ev1,LOW);
+          else if(new_setpoint == 0) digitalWrite(ev1,HIGH);
+          send_ev_states();
+          break;
+        case 12:
+          controller_mode = false; // activar modo manual = controller_mode = false
+          time_back_manual_mode = true; //
+          manual_mode_timeout = 2 * 3600 * 1000;
+          if(new_setpoint == 11) digitalWrite(ev2,LOW);
+          else if(new_setpoint == 0) digitalWrite(ev2,HIGH);
+          send_ev_states();
+          break;
+        case 13:
+          controller_mode = false; // activar modo manual = controller_mode = false
+          time_back_manual_mode = true; //
+          manual_mode_timeout = 2 * 3600 * 1000;
+          if(new_setpoint == 11) digitalWrite(ev3,LOW);
+          else if(new_setpoint == 0) digitalWrite(ev3,HIGH);
+          send_ev_states();
+          break;
+        case 14:
+          controller_mode = false; // activar modo manual = controller_mode = false
+          time_back_manual_mode = true; //
+          manual_mode_timeout = 2 * 3600 * 1000;
+          if(new_setpoint == 11) digitalWrite(ev4,LOW);
+          else if(new_setpoint == 0) digitalWrite(ev4,HIGH);
+          send_ev_states();
+          break;
+        case 15:
+          Serial.println(F("RECIBIDO - CORTINA - MODO MANUAL"));
+          controller_mode = false; // activar modo manual = controller_mode = false
+          time_back_manual_mode = true; //
+          manual_mode_timeout = 2 * 3600 * 1000;
+          if(new_setpoint == 11) {
+            closeScreen();
+            }
+          else if(new_setpoint == 0){
+             openScreen();
+             }
+          send_ev_states();
+          break;
+        default:
+          break;
+      }
       if (type == 1)
       {
-        Serial.println(F("actualizacion para temperatura"));
-        //Serial.println(temperature_setp);
-        strncpy(temperature_setp, willbeint, 3);
-        //Serial.println(temperature_setp);
-        _temperature_setp = new_setpoint;
-      }
-      if (type == 2)
+        
+      }else if (type == 2)
       {
-        Serial.println(F("actualizacion para humedad"));
-        //Serial.println(temperature_setp);
-        strncpy(humidity_setp, willbeint, 3);
-        //Serial.println(temperature_setp);
-        _humidity_setp = new_setpoint;
+        
       }
-      save_conf();
+      
     }
   }
 }
@@ -845,6 +930,11 @@ void loop()
         controller_mode = true;
         time_back_manual_mode = false;
         Serial.println(F("modo manual DESACTIVADO"));
+        digitalWrite(ev1,HIGH);
+        digitalWrite(ev2,HIGH);
+        digitalWrite(ev3,HIGH);
+        digitalWrite(ev4,HIGH);
+        send_ev_states();
         //closeScreen(); //no necesariamente necesita cerrarse.
       }
     }
