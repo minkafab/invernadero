@@ -449,6 +449,7 @@ void callback(char *topico, byte *payload, unsigned int length)
       digitalWrite(ev2,HIGH);
       digitalWrite(ev3,HIGH);
       digitalWrite(ev4,HIGH);
+      send_ev_states();
     }
     else if(strcmp(rit, (char *)ev1_apikey) == 0)
     {
