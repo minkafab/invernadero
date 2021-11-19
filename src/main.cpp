@@ -37,7 +37,7 @@ int _humidity_setp = 0;
 int _temperature_setp = 0;
 
 long debouncing_time = 100;   //Debouncing Time in Milliseconds
-long homing_max_time = 10000; //tiempo en milisegundos
+long homing_max_time = 10 * 1000; //tiempo en milisegundos
 long manual_mode_timeout = 2 * 3600 * 1000;//tiempo maximo despues de un modo manual antes de pasar a modo automatico
 bool time_back_manual_mode = false;
 volatile unsigned long last_micros;
@@ -327,9 +327,9 @@ void openScreen()
     {
       eval_ac_inputs();
       digitalWrite(pul, HIGH);
-      delayMicroseconds(200);
+      delayMicroseconds(100);
       digitalWrite(pul, LOW);
-      delayMicroseconds(200);
+      delayMicroseconds(100);
     }
   }
 }
@@ -351,9 +351,9 @@ void closeScreen()
     {
       eval_ac_inputs();
       digitalWrite(pul, HIGH);
-      delayMicroseconds(200);
+      delayMicroseconds(100);
       digitalWrite(pul, LOW);
-      delayMicroseconds(200);
+      delayMicroseconds(100);
     }
     digitalWrite(ena, HIGH);
     Serial.println("OK");
@@ -845,9 +845,9 @@ void setup()
   {
     eval_ac_inputs();
     digitalWrite(pul, HIGH);
-    delayMicroseconds(200);
+    delayMicroseconds(100);
     digitalWrite(pul, LOW);
-    delayMicroseconds(200);
+    delayMicroseconds(100);
   }
 
   Serial.println(F("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++"));
