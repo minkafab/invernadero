@@ -327,9 +327,9 @@ void openScreen()
     {
       eval_ac_inputs();
       digitalWrite(pul, HIGH);
-      delayMicroseconds(100);
+      delayMicroseconds(200);
       digitalWrite(pul, LOW);
-      delayMicroseconds(100);
+      delayMicroseconds(200);
     }
   }
 }
@@ -351,9 +351,9 @@ void closeScreen()
     {
       eval_ac_inputs();
       digitalWrite(pul, HIGH);
-      delayMicroseconds(100);
+      delayMicroseconds(200);
       digitalWrite(pul, LOW);
-      delayMicroseconds(100);
+      delayMicroseconds(200);
     }
     digitalWrite(ena, HIGH);
     Serial.println("OK");
@@ -845,9 +845,9 @@ void setup()
   {
     eval_ac_inputs();
     digitalWrite(pul, HIGH);
-    delayMicroseconds(100);
+    delayMicroseconds(200);
     digitalWrite(pul, LOW);
-    delayMicroseconds(100);
+    delayMicroseconds(200);
   }
 
   Serial.println(F("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++"));
