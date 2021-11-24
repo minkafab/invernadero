@@ -37,7 +37,7 @@ int _humidity_setp = 0;
 int _temperature_setp = 0;
 
 long debouncing_time = 100;   //Debouncing Time in Milliseconds
-long homing_max_time = 10 * 1000; //tiempo en milisegundos
+long homing_max_time = 46 * 1000; //tiempo en milisegundos
 long manual_mode_timeout = 2 * 3600 * 1000;//tiempo maximo despues de un modo manual antes de pasar a modo automatico
 bool time_back_manual_mode = false;
 volatile unsigned long last_micros;
