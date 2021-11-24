@@ -322,7 +322,7 @@ void openScreen()
   {
     last_millis = millis();
     Serial.print(F("ABRIENDO CORTINA ."));
-    digitalWrite(dir, LOW);
+    digitalWrite(dir, HIGH);
     while ((millis() - last_millis) <= homing_max_time && up_state == HIGH)
     {
       eval_ac_inputs();
@@ -345,7 +345,7 @@ void closeScreen()
   {
     last_millis = millis();
     Serial.print(F("CERRANDO CORTINA ."));
-    digitalWrite(dir, HIGH);
+    digitalWrite(dir, LOW);
     digitalWrite(ena, LOW);
     while ((millis() - last_millis) <= homing_max_time && down_state == HIGH)
     {
@@ -838,7 +838,7 @@ void setup()
 
   readSHT20();
   last_millis = millis();
-  digitalWrite(dir, LOW);
+  digitalWrite(dir, HIGH);
   digitalWrite(ena, LOW);
   eval_ac_inputs();
   while ((millis() - last_millis) <= homing_max_time && up_state == HIGH)
