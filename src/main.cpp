@@ -317,12 +317,15 @@ void openScreen()
   digitalWrite(ena, LOW);
   if (up_state == LOW)
   {
+    digitalWrite(ena, HIGH);
   }
   else
   {
     last_millis = millis();
     Serial.print(F("ABRIENDO CORTINA ."));
     digitalWrite(dir, HIGH);
+    digitalWrite(ena, LOW);
+    eval_ac_inputs();
     while ((millis() - last_millis) <= homing_max_time && up_state == HIGH)
     {
       eval_ac_inputs();
@@ -331,6 +334,8 @@ void openScreen()
       digitalWrite(pul, LOW);
       delayMicroseconds(200);
     }
+    digitalWrite(ena, HIGH);
+    Serial.println("OK");
   }
 }
 
