@@ -314,7 +314,6 @@ void eval_ac_inputs()
 void openScreen()
 {
   eval_ac_inputs();
-  digitalWrite(ena, LOW);
   if (up_state == LOW)
   {
     digitalWrite(ena, HIGH);
@@ -487,6 +486,7 @@ void callback(char *topico, byte *payload, unsigned int length)
       //valor mayor a 3 digitos no peude ser anadido
       Serial.println(F("error en el valor setp"));
       client.publish(usertopic, "noVALsetp");
+      return;
     }
     else
     {
@@ -502,7 +502,8 @@ void callback(char *topico, byte *payload, unsigned int length)
       willbeint[fin - 2] = '\0';
       Serial.println(willbeint); //valor listo a ser convertido en entero
       sscanf(willbeint, "%d", &new_setpoint);
-      switch (type){
+    }
+    switch (type){
         case 1:
           Serial.println(F("actualizacion para temperatura"));
           //Serial.println(temperature_setp);
@@ -567,15 +568,7 @@ void callback(char *topico, byte *payload, unsigned int length)
         default:
           break;
       }
-      if (type == 1)
-      {
-        
-      }else if (type == 2)
-      {
-        
-      }
-      
-    }
+      return;
   }
 }
 
@@ -929,8 +922,13 @@ void loop()
       if(controller_mode == true){
         Serial.println(F("Apertura de cortina, modo manual activado"));
         controller_mode = false;
+        digitalWrite(ev1,HIGH);
+        digitalWrite(ev2,HIGH);
+        digitalWrite(ev3,HIGH);
+        digitalWrite(ev4,HIGH);
         openScreen();
         time_back_manual_mode = true;
+        send_ev_states();
         //comienzo de cuenta atras de manual_mode_timeout
       }else if(controller_mode == false){
         controller_mode = true;
