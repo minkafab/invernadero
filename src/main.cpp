@@ -27,6 +27,7 @@ WiFiManager wm;
 #define ev4 18 //Electrovalve Relay output 4
 
 #define led 5 //Led for blink on Wifi State
+#define total_steps 2000000
 
 uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
 uint8_t cont = 0;
@@ -42,6 +43,7 @@ long manual_mode_timeout = 2 * 3600 * 1000;//tiempo maximo despues de un modo ma
 bool time_back_manual_mode = false;
 volatile unsigned long last_micros;
 volatile unsigned long last_millis;
+unsigned long actual_steps = 0;
 
 bool ac1_state = false;
 bool ac2_state = false;
@@ -185,16 +187,16 @@ void do_electrovalve_action(uint8_t electrovalve, bool action)
   switch (electrovalve_num)
   {
   case 1:
-    digitalWrite(ev1, action || control_action);
+    digitalWrite(ev1, !(action || control_action));
     break;
   case 2:
-    digitalWrite(ev2, action || control_action);
+    digitalWrite(ev2, !(action || control_action));
     break;
   case 3:
-    digitalWrite(ev3, action || control_action);
+    digitalWrite(ev3, !(action || control_action));
     break;
   case 4:
-    digitalWrite(ev4, action || control_action);
+    digitalWrite(ev4, !(action || control_action));
     break;
   default:
     break;
@@ -317,6 +319,7 @@ void openScreen()
   if (up_state == LOW)
   {
     digitalWrite(ena, HIGH);
+    actual_steps = 0;
   }
   else
   {
@@ -325,13 +328,14 @@ void openScreen()
     digitalWrite(dir, HIGH);
     digitalWrite(ena, LOW);
     eval_ac_inputs();
-    while ((millis() - last_millis) <= homing_max_time && up_state == HIGH)
+    while ((millis() - last_millis) <= homing_max_time && up_state == HIGH && actual_steps > 10)
     {
       eval_ac_inputs();
       digitalWrite(pul, HIGH);
       delayMicroseconds(250);
       digitalWrite(pul, LOW);
       delayMicroseconds(250);
+      actual_steps--;
     }
     digitalWrite(ena, HIGH);
     Serial.println("OK");
@@ -344,6 +348,7 @@ void closeScreen()
   if (down_state == LOW)
   {
     digitalWrite(ena, HIGH);
+    actual_steps = total_steps;
   }
   else
   {
@@ -351,13 +356,14 @@ void closeScreen()
     Serial.print(F("CERRANDO CORTINA ."));
     digitalWrite(dir, LOW);
     digitalWrite(ena, LOW);
-    while ((millis() - last_millis) <= homing_max_time && down_state == HIGH)
+    while ((millis() - last_millis) <= homing_max_time && down_state == HIGH && (total_steps - actual_steps) < 10)
     {
       eval_ac_inputs();
       digitalWrite(pul, HIGH);
       delayMicroseconds(250);
       digitalWrite(pul, LOW);
       delayMicroseconds(250);
+      actual_steps ++;
     }
     digitalWrite(ena, HIGH);
     Serial.println("OK");
@@ -444,16 +450,14 @@ void callback(char *topico, byte *payload, unsigned int length)
     }
     else if (strcmp(rit, (char *)auto_man_apikey) == 0)
     {
-      Serial.println(F("REGRESO A MODO AUTOMATICO"));
+      Serial.println(F("CAMBIO DE MODO"));
       type = 3;
-      controller_mode = true;
-      time_back_manual_mode = false;
-      manual_mode_timeout = 2 * 3600 * 1000;
-      digitalWrite(ev1,HIGH);
-      digitalWrite(ev2,HIGH);
-      digitalWrite(ev3,HIGH);
-      digitalWrite(ev4,HIGH);
-      send_ev_states();
+      ret[0] = '/0';
+      ret = strrchr((char *)payload, 'c');
+      ret[7] = '\0';
+      Serial.printf("String after |c=| is - |%s|\n", ret);
+      fin = strchr(ret, '&') - ret;
+      
     }
     else if(strcmp(rit, (char *)ev1_apikey) == 0)
     {
@@ -520,36 +524,58 @@ void callback(char *topico, byte *payload, unsigned int length)
           _humidity_setp = new_setpoint;
           save_conf();
           break;
+        case 3:
+          if(new_setpoint >= 1){
+            controller_mode = true;
+            time_back_manual_mode = false;
+            manual_mode_timeout = 2 * 3600 * 1000;
+            digitalWrite(ev1,!HIGH);
+            digitalWrite(ev2,!HIGH);
+            digitalWrite(ev3,!HIGH);
+            digitalWrite(ev4,!HIGH);
+            send_ev_states();
+          }
+          else if(new_setpoint <=0){
+            controller_mode = false;
+            time_back_manual_mode = true;
+            manual_mode_timeout = 2 * 3600 * 1000;
+            digitalWrite(ev1,!HIGH);
+            digitalWrite(ev2,!HIGH);
+            digitalWrite(ev3,!HIGH);
+            digitalWrite(ev4,!HIGH);
+            send_ev_states();
+          }
+          
         case 11:
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) digitalWrite(ev1,LOW);
-          else if(new_setpoint == 0) digitalWrite(ev1,HIGH);
+          if(new_setpoint == 11) digitalWrite(ev1,!LOW);
+          else if(new_setpoint == 0) digitalWrite(ev1,!HIGH);
           send_ev_states();
           break;
         case 12:
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) digitalWrite(ev2,LOW);
-          else if(new_setpoint == 0) digitalWrite(ev2,HIGH);
+          if(new_setpoint == 11) digitalWrite(ev2,!LOW);
+          else if(new_setpoint == 0) digitalWrite(ev2,!HIGH);
           send_ev_states();
           break;
         case 13:
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) digitalWrite(ev3,LOW);
-          else if(new_setpoint == 0) digitalWrite(ev3,HIGH);
+          if(new_setpoint == 11) digitalWrite(ev3,!LOW);
+          else if(new_setpoint == 0) digitalWrite(ev3,!HIGH);
           send_ev_states();
           break;
         case 14:
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) digitalWrite(ev4,LOW);
-          else if(new_setpoint == 0) digitalWrite(ev4,HIGH);
+          if(new_setpoint == 11) digitalWrite(ev4,!LOW);
+          else if(new_setpoint == 0) digitalWrite(ev4,!HIGH);
           send_ev_states();
           break;
         case 15:
@@ -557,7 +583,7 @@ void callback(char *topico, byte *payload, unsigned int length)
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) {
+          if(new_setpoint == 11 && screen_state != -1) {
             closeScreen();
             }
           else if(new_setpoint == 0){
@@ -724,10 +750,10 @@ void setup()
   pinMode(ev4, OUTPUT);
   pinMode(led, OUTPUT);
   digitalWrite(led, LOW);
-  digitalWrite(ev1, HIGH);
-  digitalWrite(ev2, HIGH);
-  digitalWrite(ev3, HIGH);
-  digitalWrite(ev4, HIGH);
+  digitalWrite(ev1, !HIGH);
+  digitalWrite(ev2, !HIGH);
+  digitalWrite(ev3, !HIGH);
+  digitalWrite(ev4, !HIGH);
 
   ac1_state = digitalRead(ac1);
   ac2_state = digitalRead(ac2);
@@ -847,6 +873,9 @@ void setup()
     digitalWrite(pul, LOW);
     delayMicroseconds(250);
   }
+  if(up_state == HIGH){
+    actual_steps = 0;
+  }
 
   Serial.println(F("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++"));
   Serial.printf("Temperature set point: %d \n", _temperature_setp);
@@ -876,7 +905,7 @@ void loop()
 
   if (tCheck(&t_verify_screen))
   {
-    if (temperature < _temperature_setp && controller_mode)
+    if (temperature < _temperature_setp && controller_mode && screen_state != -1)
     {
       closeScreen();
     }
@@ -922,10 +951,10 @@ void loop()
       if(controller_mode == true){
         Serial.println(F("Apertura de cortina, modo manual activado"));
         controller_mode = false;
-        digitalWrite(ev1,HIGH);
-        digitalWrite(ev2,HIGH);
-        digitalWrite(ev3,HIGH);
-        digitalWrite(ev4,HIGH);
+        digitalWrite(ev1,!HIGH);
+        digitalWrite(ev2,!HIGH);
+        digitalWrite(ev3,!HIGH);
+        digitalWrite(ev4,!HIGH);
         openScreen();
         time_back_manual_mode = true;
         send_ev_states();
@@ -934,10 +963,10 @@ void loop()
         controller_mode = true;
         time_back_manual_mode = false;
         Serial.println(F("modo manual DESACTIVADO"));
-        digitalWrite(ev1,HIGH);
-        digitalWrite(ev2,HIGH);
-        digitalWrite(ev3,HIGH);
-        digitalWrite(ev4,HIGH);
+        digitalWrite(ev1,!HIGH);
+        digitalWrite(ev2,!HIGH);
+        digitalWrite(ev3,!HIGH);
+        digitalWrite(ev4,!HIGH);
         send_ev_states();
         //closeScreen(); //no necesariamente necesita cerrarse.
       }
