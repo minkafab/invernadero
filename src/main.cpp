@@ -302,7 +302,7 @@ void eval_ac_inputs()
   }
   else
   {
-    if (!down_state || actual_steps > (total_steps-1))
+    if (!down_state || actual_steps > (total_steps-12))
     {
       screen_state = 1;
     }
