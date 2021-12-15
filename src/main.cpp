@@ -27,7 +27,7 @@ WiFiManager wm;
 #define ev4 18 //Electrovalve Relay output 4
 
 #define led 5 //Led for blink on Wifi State
-#define total_steps 102350 //total de pulsos para subir o bajar
+#define total_steps 105000 //total de pulsos para subir o bajar
 
 uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
 uint8_t cont = 0;
@@ -266,10 +266,10 @@ void eval_ac_inputs()
   {
     Serial.println("UP: " + (String)!up_state);
     last_up_state = up_state;
-    if (!up_state)
+    /*if (!up_state)
     {
       screen_state = 0;
-    }
+    }*/
   }
   else
   {
@@ -283,10 +283,10 @@ void eval_ac_inputs()
   {
     Serial.println("DOWN: " + (String)!down_state);
     last_down_state = down_state;
-    if (!down_state)
+    /*if (!down_state)
     {
       screen_state = 1;
-    }
+    }*/
   }
   else
   {
@@ -302,11 +302,11 @@ void eval_ac_inputs()
   }
   else
   {
-    if (!down_state || actual_steps > (total_steps-12))
+    if (actual_steps > 100000)
     {
       screen_state = 1;
     }
-    else if (!up_state || total_steps<20)
+    else if (actual_steps<50)
     {
       screen_state = 0;
     }
@@ -870,7 +870,7 @@ void setup()
     digitalWrite(pul, LOW);
     delayMicroseconds(250);
   }
-  if(up_state == HIGH){
+  if(up_state == LOW){
     actual_steps = 0;
   }
 
