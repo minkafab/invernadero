@@ -1,11 +1,12 @@
 #include <Arduino.h>
 #include <uFire_SHT20.h>
-#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
+#include <PubSubClient.h>
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
-#include <PubSubClient.h>
-
-WiFiManager wm;
 
 #define is_up 25   //inductive sensor UP input
 #define is_down 26 //inductive sensor DOWN input
@@ -29,13 +30,18 @@ WiFiManager wm;
 #define led 5 //Led for blink on Wifi State
 #define total_steps 105000 //total de pulsos para subir o bajar
 
+const char* ssid = "NETLIFE-PLANTA BAJA";
+const char* password = "najera300";
+
 uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
 uint8_t cont = 0;
 
 float humidity = 0.0;
 float temperature = 0.0;
-int _humidity_setp = 0;
-int _temperature_setp = 0;
+int _min_humidity = 0;
+int _max_humidity = 0;
+int _min_temperature = 0;
+int _max_temperature = 0;
 
 long debouncing_time = 100;   //Debouncing Time in Milliseconds
 long homing_max_time = 70 * 1000; //tiempo en milisegundos
@@ -61,8 +67,10 @@ int8_t screen_state = -1; //-1: undefined -- 1: closed -- 0: opened
 bool controller_mode = true; // TRUE = automatico
 
 char mqtt_server[20] = "m2mlight.com";
-char humidity_setp[4] = "200";
-char temperature_setp[4] = "45";
+char max_humidity[4] = "100";
+char min_humidity[4] = "50";
+char max_temperature[4] = "30";
+char min_temperature[4] = "20";
 const char usertopic[20] = "/3x1Z1njcje";
 const char replyusertopic[20] = "/3x1Z1njcje/reply/";
 const char sensorusertopic[20] = "/3x1Z1njcje/sensor/";
@@ -180,7 +188,7 @@ void do_electrovalve_action(uint8_t electrovalve, bool action)
   uint8_t electrovalve_num = electrovalve;
   bool control_action = true;
 
-  if (humidity < _humidity_setp && temperature > _temperature_setp && action == false && controller_mode)
+  if (humidity < _max_humidity && temperature > _min_temperature && action == false && controller_mode)
   {
     control_action = false;
   }
@@ -393,8 +401,10 @@ void save_conf()
   Serial.println(F("saving config"));
   DynamicJsonBuffer jsonBuffer;
   JsonObject &json = jsonBuffer.createObject();
-  json["humidity_setp"] = humidity_setp;
-  json["temperature_setp"] = temperature_setp;
+  json["max_humidity"] = max_humidity;
+  json["min_humidity"] = min_humidity;
+  json["max_temperature"] = max_temperature;
+  json["min_temperature"] = min_temperature;
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile)
@@ -409,11 +419,17 @@ void save_conf()
 
 void callback(char *topico, byte *payload, unsigned int length)
 {
+  char *min;
+  char *max;
   char *ret;
   char *rit;
-  char willbeint[6];
+  char min_willbeint[6];
+  char max_willbeint[6];
+  char e_willbeint[6];
   uint8_t type = 0;
-  int new_setpoint = 0;
+  int new_min = 0;
+  int new_max = 0;
+  int new_e = 0;
 
   //sens3144&o=I&a=jkrl1njcrk&t=0&s=1&e=50&u=&v=
   Serial.print(F("Message arrived ["));
@@ -426,19 +442,27 @@ void callback(char *topico, byte *payload, unsigned int length)
   Serial.println();
   if (strcmp((char *)payload, "sens") > 4)
   {
-    //Serial.println(F("Esl payload es mayor que 4"));
+    max = strrchr((char*)payload, 'h');
+    max[6] = '\0';
+    Serial.printf("String after |h=| is - |%s|\n", max);
+    uint8_t max_fin = strchr(max, '&') - max;
+    min = strrchr((char*)payload, 'l');
+    min[6] = '\0';
+    Serial.printf("String after |l=| is - |%s|\n", min);
+    uint8_t min_fin = strchr(min, '&') - min;
+    Serial.printf("min_fin: %d max_fin: %d\n", min_fin, max_fin);
     ret = strrchr((char *)payload, 'e');
-    ret[7] = '\0';
+    ret[6] = '\0';
     Serial.printf("String after |e=| is - |%s|\n", ret);
     uint8_t fin = strchr(ret, '&') - ret;
-    //Serial.println("FIN es: " + (String)fin);
-    strncpy(reply, (char *)payload, 12);
-    //reply = (char*)payload;
+    // verificar APIKEY
     Serial.println("---------------------------------------------------");
+    strncpy(reply, (char *)payload, 12);
     rit = strchr((char *)payload, 'a');
     rit[12] = '\0';
     Serial.printf("String after |a=| is - |%s|\n", rit);
     rit += 2;
+
     if (strcmp(rit, (char *)temp_apikey) == 0)
     {
       Serial.println(F("TEMPERATURA"));
@@ -480,13 +504,14 @@ void callback(char *topico, byte *payload, unsigned int length)
       Serial.println(F("CORTINA-MODO MANUAL"));
       type = 15;
     }
-    Serial.println("---------------------------------------------------");
-    if (fin > 5 || fin < 2)
+    Serial.println("---------------------------------------------------"); 
+
+    if (fin > 5 || fin <= 2)
     {
       //valor mayor a 3 digitos no peude ser anadido
       Serial.println(F("error en el valor setp"));
       client.publish(usertopic, "noVALsetp");
-      return;
+      type=0;
     }
     else
     {
@@ -497,31 +522,71 @@ void callback(char *topico, byte *payload, unsigned int length)
       client.publish(replyusertopic, reply);
       for (uint8_t i = 2; i < fin; i++)
       {
-        willbeint[i - 2] = ret[i];
+        e_willbeint[i - 2] = ret[i];
       }
-      willbeint[fin - 2] = '\0';
-      Serial.println(willbeint); //valor listo a ser convertido en entero
-      sscanf(willbeint, "%d", &new_setpoint);
+      e_willbeint[fin - 2] = '\0';
+      Serial.println(e_willbeint); //valor listo a ser convertido en entero
+      sscanf(e_willbeint, "%d", &new_e);
     }
+
+    if (min_fin > 5 || min_fin <= 2 || max_fin > 5 || max_fin <= 2)
+    {
+      Serial.println(F("error en el valor setp"));
+      client.publish(usertopic, "noVALsetp");
+      if(fin <= 1) type=0;
+    }
+    else
+    {
+      reply[9] = 'O';
+      reply[10] = 'K';
+      reply[11] = '\0';
+      Serial.println(reply);
+      client.publish(replyusertopic, reply);
+      for (uint8_t i = 2; i < max_fin; i++)
+      {
+        max_willbeint[i - 2] = max[i];
+        Serial.printf("%c",max[i]);
+      }
+      Serial.println();
+      max_willbeint[max_fin - 2] = '\0';
+      //Serial.println(max_willbeint); //valor listo a ser convertido en entero
+      sscanf(max_willbeint, "%d", &new_max);
+      Serial.println(new_max);
+      for (uint8_t i = 2; i < min_fin; i++)
+      {
+        min_willbeint[i - 2] = min[i];
+        Serial.printf("%c",min[i]);
+      }
+      Serial.println();
+      min_willbeint[min_fin - 2] = '\0';
+      //Serial.println(min_willbeint); //valor listo a ser convertido en entero
+      sscanf(min_willbeint, "%d", &new_min);
+      Serial.println(new_min);
+      
+    }  
+    Serial.println("---------------------------------------------------"); 
+    
+
     switch (type){
         case 1:
           Serial.println(F("actualizacion para temperatura"));
-          //Serial.println(temperature_setp);
-          strncpy(temperature_setp, willbeint, 3);
-          //Serial.println(temperature_setp);
-          _temperature_setp = new_setpoint;
+          strncpy(min_temperature, min_willbeint, 3);
+          strncpy(max_temperature, max_willbeint, 3);
+          _min_temperature = new_min;
+          _max_temperature = new_max;
           save_conf();
           break;
         case 2:
           Serial.println(F("actualizacion para humedad"));
-          //Serial.println(temperature_setp);
-          strncpy(humidity_setp, willbeint, 3);
-          //Serial.println(temperature_setp);
-          _humidity_setp = new_setpoint;
+          strncpy(min_humidity, min_willbeint, 3);
+          strncpy(max_humidity, max_willbeint, 3);
+          _min_humidity = new_min;
+          _max_humidity = new_max;
           save_conf();
           break;
         case 3:
-          if(new_setpoint >= 1){
+          Serial.println(F("CAMBIO DE MODO"));
+          if(new_e >= 1){
             controller_mode = true;
             time_back_manual_mode = false;
             manual_mode_timeout = 2 * 3600 * 1000;
@@ -531,7 +596,7 @@ void callback(char *topico, byte *payload, unsigned int length)
             digitalWrite(ev4,HIGH);
             send_ev_states();
           }
-          else if(new_setpoint <=0){
+          else if(new_e <=0){
             controller_mode = false;
             time_back_manual_mode = true;
             manual_mode_timeout = 2 * 3600 * 1000;
@@ -544,35 +609,39 @@ void callback(char *topico, byte *payload, unsigned int length)
           break;
           
         case 11:
+          Serial.println(F("EV1 - UPDATE"));
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) digitalWrite(ev1,LOW);
-          else if(new_setpoint == 0) digitalWrite(ev1,HIGH);
+          if(new_e == 11) digitalWrite(ev1,LOW);
+          else if(new_e == 0) digitalWrite(ev1,HIGH);
           send_ev_states();
           break;
         case 12:
+          Serial.println(F("EV2 - UPDATE"));
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) digitalWrite(ev2,LOW);
-          else if(new_setpoint == 0) digitalWrite(ev2,HIGH);
+          if(new_e == 11) digitalWrite(ev2,LOW);
+          else if(new_e == 0) digitalWrite(ev2,HIGH);
           send_ev_states();
           break;
         case 13:
+          Serial.println(F("EV3 - UPDATE"));
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) digitalWrite(ev3,LOW);
-          else if(new_setpoint == 0) digitalWrite(ev3,HIGH);
+          if(new_e == 11) digitalWrite(ev3,LOW);
+          else if(new_e == 0) digitalWrite(ev3,HIGH);
           send_ev_states();
           break;
         case 14:
+          Serial.println(F("EV4 - UPDATE"));
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11) digitalWrite(ev4,LOW);
-          else if(new_setpoint == 0) digitalWrite(ev4,HIGH);
+          if(new_e == 11) digitalWrite(ev4,LOW);
+          else if(new_e == 0) digitalWrite(ev4,HIGH);
           send_ev_states();
           break;
         case 15:
@@ -580,10 +649,10 @@ void callback(char *topico, byte *payload, unsigned int length)
           controller_mode = false; // activar modo manual = controller_mode = false
           time_back_manual_mode = true; //
           manual_mode_timeout = 2 * 3600 * 1000;
-          if(new_setpoint == 11 && screen_state != -1) {
+          if(new_e == 11 && screen_state != -1) {
             closeScreen();
             }
-          else if(new_setpoint == 0){
+          else if(new_e == 0){
              openScreen();
              }
           send_ev_states();
@@ -592,21 +661,16 @@ void callback(char *topico, byte *payload, unsigned int length)
           break;
       }
       return;
+
   }
+    
 }
 
 void reconnect()
 {
-  uint8_t tries = 0;
-  // Loop until we're reconnected
-  if(!WiFi.isConnected()){
-    ESP.restart();
-  }
-  while (!client.connected() && tries < 3 && WiFi.isConnected())
-  {
     Serial.print(F("Attempting MQTT connection..."));
     // Attempt to connect
-    if (client.connect("arduinoClient", "mqtt", "m2mlight12"))
+    if (client.connect("esp32client", "mqtt", "m2mlight12"))
     {
       Serial.println(F("connected"));
       // Once connected, publish an announcement...
@@ -619,11 +683,7 @@ void reconnect()
       Serial.print(F("failed, rc="));
       Serial.print(client.state());
       Serial.println(F(" try again in 5 seconds"));
-      tries++;
-      // Wait 5 seconds before retrying
-      //delay(5000);
     }
-  }
 }
 
 //callback notifying us of the need to save config
@@ -636,7 +696,7 @@ void saveConfigCallback()
 void setupSpiffs()
 {
   //clean FS, for testing
-  // SPIFFS.format();
+  //SPIFFS.format();
 
   //read configuration from FS json
   Serial.println("mounting FS...");
@@ -664,18 +724,10 @@ void setupSpiffs()
         {
           Serial.println(F("\nparsed json"));
 
-          strcpy(humidity_setp, json["humidity_setp"]);
-          strcpy(temperature_setp, json["temperature_setp"]);
-
-          // if(json["ip"]) {
-          //   Serial.println("setting custom ip from config");
-          //   strcpy(static_ip, json["ip"]);
-          //   strcpy(static_gw, json["gateway"]);
-          //   strcpy(static_sn, json["subnet"]);
-          //   Serial.println(static_ip);
-          // } else {
-          //   Serial.println("no custom ip in config");
-          // }
+          strcpy(min_humidity, json["min_humidity"]);
+          strcpy(max_humidity, json["max_humidity"]);
+          strcpy(min_temperature, json["min_temperature"]);
+          strcpy(max_temperature, json["max_temperature"]);
         }
         else
         {
@@ -688,7 +740,6 @@ void setupSpiffs()
   {
     Serial.println(F("failed to mount FS"));
   }
-  //end read
 }
 
 void readSHT20()
@@ -774,7 +825,7 @@ void setup()
   pinMode(sw, INPUT);
 
   Serial.begin(115200);
-  Serial.println(F("HOLA MUNDO"));
+  Serial.println(F("BOOTING ESP32"));
 
   Wire.begin();
   sht20.begin();
@@ -782,75 +833,72 @@ void setup()
   setupSpiffs();
 
   WiFi.mode(WIFI_STA);
-  wm.setSaveConfigCallback(saveConfigCallback);
-  WiFiManagerParameter custom_humidity_setp("humidity_setp", "humidity_setp", humidity_setp, 3);
-  WiFiManagerParameter custom_temperature_setp("temperature_setp", "temperature_setp", temperature_setp, 3);
+  WiFi.begin(ssid, password);
+  if(WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(100);
+  }
 
-  //add all your parameters here
-  wm.addParameter(&custom_humidity_setp);
-  wm.addParameter(&custom_temperature_setp);
+   ArduinoOTA.setPort(3232);
+   ArduinoOTA.setHostname("invernadero");
 
-  //reset settings - wipe credentials for testing
-  //wm.resetSettings();
+  MDNS.begin("invernadero");
+  ArduinoOTA
+    .onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
 
-  // Automatically connect using saved credentials,
-  // if connection fails, it starts an access point with the specified name ( "AutoConnectAP"),
-  // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
-  // then goes into a blocking loop awaiting configuration and will return success result
+      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+      Serial.println("Start updating " + type);
+    })
+    .onEnd([]() {
+      Serial.println("\nEnd");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
 
-  bool res;
-  // res = wm.autoConnect(); // auto generated AP name from chipid
-  // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
-  res = wm.autoConnect("INVERNADERO", "minka20194586"); // password protected ap
+  ArduinoOTA.begin();
 
-  if (!res)
+  Serial.println("Ready");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  
+
+  if (WiFi.status() != WL_CONNECTED)
   {
     Serial.println(F("Failed to connect"));
-    //ledcAttachPin(ev4, 0);
-    //ledcSetup(0, 1000, 4);
-    //ledcWrite(0, 4);
-    // ESP.restart();
     digitalWrite(led, LOW);
   }
   else
   {
     //if you get here you have connected to the WiFi
     Serial.println(F("connected...yeey :)"));
+    Serial.println("Ready");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
     digitalWrite(led, HIGH);
     client.setServer(mqtt_server, 1883);
     client.setCallback(callback);
     reconnect();
   }
 
-  strcpy(humidity_setp, custom_humidity_setp.getValue());
-  strcpy(temperature_setp, custom_temperature_setp.getValue());
-  sscanf(humidity_setp, "%d", &_humidity_setp);
-  sscanf(temperature_setp, "%d", &_temperature_setp);
-
-  if (shouldSaveConfig)
-  {
-    Serial.println(F("saving config"));
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &json = jsonBuffer.createObject();
-    json["humidity_setp"] = humidity_setp;
-    json["temperature_setp"] = temperature_setp;
-
-    // json["ip"]          = WiFi.localIP().toString();
-    // json["gateway"]     = WiFi.gatewayIP().toString();
-    // json["subnet"]      = WiFi.subnetMask().toString();
-
-    File configFile = SPIFFS.open("/config.json", "w");
-    if (!configFile)
-    {
-      Serial.println(F("failed to open config file for writing"));
-    }
-
-    json.prettyPrintTo(Serial);
-    json.printTo(configFile);
-    configFile.close();
-    //end save
-    shouldSaveConfig = false;
-  }
+  sscanf(min_humidity, "%d", &_min_humidity);
+  sscanf(max_humidity, "%d", &_max_humidity);
+  sscanf(min_temperature, "%d", &_min_temperature);
+  sscanf(max_temperature, "%d", &_max_temperature);
 
   Serial.println(F("local ip"));
   Serial.println(WiFi.localIP());
@@ -875,17 +923,23 @@ void setup()
   }
 
   Serial.println(F("+++++++++ CONTROLLER ACTUAL CONFIG +++++++++"));
-  Serial.printf("Temperature set point: %d \n", _temperature_setp);
-  Serial.printf("Humidity set point: %d \n", _humidity_setp);
+  Serial.printf("Temperature min: %d  max: %d \n", _min_temperature, _max_temperature);
+  Serial.printf("Humidity min: %d max: %d \n", _min_humidity, _max_humidity);
   Serial.println(F("+++++++++            END            +++++++++"));
 }
 
 void loop()
 {
-  
+  ArduinoOTA.handle();
   eval_ac_inputs();
   if (tCheck(&t_verify))
   {
+    if ((WiFi.status() != WL_CONNECTED)){
+      Serial.println("Reconnecting to WiFi...");
+      WiFi.disconnect();
+      WiFi.reconnect();
+      delay(10);
+    }
     readSHT20();
     if(time_back_manual_mode){
       manual_mode_timeout = manual_mode_timeout - t_verify.tTimeout;
@@ -902,13 +956,20 @@ void loop()
 
   if (tCheck(&t_verify_screen))
   {
-    if (temperature < _temperature_setp && controller_mode && screen_state != -1)
+    if (temperature < _min_temperature && controller_mode && screen_state != -1)
     {
       closeScreen();
     }
-    if (temperature > _temperature_setp && controller_mode)
+    if (temperature > _max_temperature && controller_mode)
     {
       openScreen();
+    }
+    if(humidity > _max_humidity){
+      digitalWrite(ev1,HIGH);
+      digitalWrite(ev2,HIGH);
+      digitalWrite(ev3,HIGH);
+      digitalWrite(ev4,HIGH);
+      send_ev_states();
     }
 
     eval_ac_inputs();
@@ -971,14 +1032,19 @@ void loop()
     if (acum > 750)
     {
       Serial.println(F("RESET DONE"));
-      wm.resetSettings();
       ESP.restart();
     }
   }
 
-  if (!client.connected())
+  
+
+  if (client.state() < 0 && WiFi.status() == WL_CONNECTED)
   {
-    reconnect();
+      Serial.println(F("conectando mqtt"));
+      client.setServer(mqtt_server, 1883);
+      client.connect("esp32client", "mqtt", "m2mlight12");
+      client.subscribe(usertopic);
+      client.setCallback(callback);
   }
   if (WiFi.isConnected())
     client.loop();
