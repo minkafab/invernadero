@@ -30,8 +30,8 @@
 #define led 5 //Led for blink on Wifi State
 #define total_steps 105000 //total de pulsos para subir o bajar
 
-const char* ssid = "NETLIFE-PLANTA BAJA";
-const char* password = "najera300";
+const char* ssid = "MINKAFAB";
+const char* password = "minka20194586";
 
 uFire_SHT20 sht20; //SHT20 Humidity and Temperature Sensor i2C interface
 uint8_t cont = 0;
@@ -71,9 +71,9 @@ char max_humidity[4] = "100";
 char min_humidity[4] = "50";
 char max_temperature[4] = "30";
 char min_temperature[4] = "20";
-const char usertopic[20] = "/3x1Z1njcje";
-const char replyusertopic[20] = "/3x1Z1njcje/reply/";
-const char sensorusertopic[20] = "/3x1Z1njcje/sensor/";
+const char usertopic[20] = "/test";
+const char replyusertopic[20] = "/test/reply/";
+const char sensorusertopic[20] = "/test/sensor/";
 const char ev1_apikey[20] = "3r5A1njcru";
 const char ev2_apikey[20] = "qC4O1njcrv";
 const char ev3_apikey[20] = "NjV91njcrw";
@@ -670,7 +670,7 @@ void reconnect()
 {
     Serial.print(F("Attempting MQTT connection..."));
     // Attempt to connect
-    if (client.connect("esp32client", "mqtt", "m2mlight12"))
+    if (client.connect("esp32client_1234", "mqtt", "m2mlight12"))
     {
       Serial.println(F("connected"));
       // Once connected, publish an announcement...
@@ -787,10 +787,10 @@ void readSHT20()
 
 void setup()
 {
-  pinMode(ac1, INPUT);
-  pinMode(ac2, INPUT);
-  pinMode(ac3, INPUT);
-  pinMode(ac4, INPUT);
+  pinMode(ac1, INPUT_PULLUP);
+  pinMode(ac2, INPUT_PULLUP);
+  pinMode(ac3, INPUT_PULLUP);
+  pinMode(ac4, INPUT_PULLUP);
 
   pinMode(ev1, OUTPUT);
   pinMode(ev2, OUTPUT);
@@ -814,8 +814,8 @@ void setup()
   last_up_state = up_state;
   last_down_state = down_state;
 
-  pinMode(is_up, INPUT);
-  pinMode(is_down, INPUT);
+  pinMode(is_up, INPUT_PULLUP);
+  pinMode(is_down, INPUT_PULLUP);
 
   pinMode(pul, OUTPUT);
   pinMode(dir, OUTPUT);
@@ -956,6 +956,7 @@ void loop()
 
   if (tCheck(&t_verify_screen))
   {
+    Serial.println("Chequeando cortina");
     if (temperature < _min_temperature && controller_mode && screen_state != -1)
     {
       closeScreen();
@@ -979,10 +980,12 @@ void loop()
     strcat(mess, screen_apikey);
     strcat(mess, "&");
     dtostrf(screen_state, 1, 1, number);
-    strcat(mess, number);
+    strcat(mess, number); 
     mess[13] = '\0';
-    if (WiFi.isConnected())
+    if (WiFi.isConnected()){
+      Serial.println("publicando estado de cortina");
       client.publish(sensorusertopic, mess);
+    }
     mess[0] = '\0';
     tRun(&t_verify_screen);
   }
@@ -990,6 +993,7 @@ void loop()
   if (tCheck(&t_electrovalves_state))
   {
     send_ev_states();
+    Serial.println("enviando EV states");
     tRun(&t_electrovalves_state);
   }
 
@@ -1042,7 +1046,7 @@ void loop()
   {
       Serial.println(F("conectando mqtt"));
       client.setServer(mqtt_server, 1883);
-      client.connect("esp32client", "mqtt", "m2mlight12");
+      client.connect("esp32client_1234", "mqtt", "m2mlight12");
       client.subscribe(usertopic);
       client.setCallback(callback);
   }
